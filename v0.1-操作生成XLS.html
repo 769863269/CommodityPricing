@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>动态报价表（含编号 + 拖拽 + 尺寸/配置排序 + 高亮）</title>
+  <style>
+    :root {
+      --primary: #4361ee;
+      --danger: #f72585;
+      --success: #06d6a0;
+      --gray: #64748b;
+      --light-gray: #e2e8f0;
+      --border: #cbd5e1;
+      --text: #1e293b;
+      --white: #ffffff;
+      --shadow: 0 6px 20px rgba(0,0,0,0.12);
+      --radius: 12px;
+      --error: #ef4444;
+      --highlight: #dbeafe;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: #f8fafc;
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #addRowBtn { background-color: var(--primary); color: white; }
+    #addColumnBtn { background-color: #7209b7; color: white; }
+    #exportBtn { background-color: var(--success); color: white; }
+    #importBtn { background-color: #0d9488; color: white; }
+    #undoBtn { 
+      background-color: #64748b; 
+      color: white; 
+      opacity: 0.6; 
+      pointer-events: none; 
+    }
+    #undoBtn.enabled {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #bulkDeleteBtn {
+      background-color: var(--danger);
+      color: white;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    #bulkDeleteBtn.enabled {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    button:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
+
+    .addon-input-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--gray);
+    }
+
+    #addonValueInput {
+      width: 80px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .import-options {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      color: var(--gray);
+      flex-wrap: wrap;
+    }
+
+    .import-options input[type="checkbox"] {
+      margin: 0;
+      transform: scale(1.2);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+
+    th {
+      background-color: #f1f5f9;
+      position: relative;
+      font-weight: 600;
+    }
+
+    /* 排序指示器 */
+    .sort-indicator {
+      margin-left: 4px;
+      font-size: 12px;
+      color: var(--gray);
+    }
+
+    .sort-indicator.active {
+      color: var(--primary);
+    }
+
+    /* 列操作按钮组 */
+    .col-actions {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: none;
+      gap: 4px;
+    }
+
+    th:hover .col-actions { display: flex; }
+
+    .col-btn {
+      width: 22px;
+      height: 22px;
+      border: none;
+      border-radius: 4px;
+      background: var(--gray);
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .col-btn:hover { background: var(--primary); }
+
+    .delete-col-btn {
+      background: var(--danger) !important;
+    }
+
+    input[type="checkbox"] {
+      margin: 0;
+      transform: scale(1.2);
+    }
+
+    .select-all, .row-select, .drag-handle, .serial-number {
+      width: 40px;
+      text-align: center;
+    }
+
+    .drag-handle {
+      cursor: move;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='6' r='1'%3E%3C/circle%3E%3Ccircle cx='9' cy='12' r='1'%3E%3C/circle%3E%3Ccircle cx='9' cy='18' r='1'%3E%3C/circle%3E%3Ccircle cx='15' cy='6' r='1'%3E%3C/circle%3E%3Ccircle cx='15' cy='12' r='1'%3E%3C/circle%3E%3Ccircle cx='15' cy='18' r='1'%3E%3C/circle%3E%3C/svg%3E") no-repeat center;
+    }
+
+    /* 行高亮 */
+    tr:hover td {
+      background-color: var(--highlight) !important;
+    }
+
+    .selected-row td {
+      background-color: #dbeafe !important;
+    }
+
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+    }
+
+    input.error {
+      border-color: var(--error);
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    }
+
+    .computed-cell {
+      background-color: #f8fafc;
+      color: var(--gray);
+      font-style: italic;
+    }
+
+    .delete-row-btn {
+      background: var(--danger);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .edit-row-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      margin-right: 6px;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.45);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-content {
+      background: var(--white);
+      border-radius: var(--radius);
+      width: 520px;
+      max-width: 95%;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      background: linear-gradient(to right, var(--primary), #3a56d4);
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 24px;
+      color: white;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      transition: background 0.2s;
+    }
+
+    .modal-body { padding: 24px; }
+    .form-group { margin-bottom: 20px; }
+    label {
+      display: block;
+      // margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 0 24px 24px;
+    }
+
+    .btn-secondary {
+      background-color: var(--light-gray);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+      font-weight: 600;
+    }
+
+    #csvFileInput { display: none; }
+
+    .flex-label {
+      display: flex;
+      justify-content: center;
+    }
+    #clearBeforeImport,#importSortAsc {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 动态报价表编辑器</h1>
+    <div class="toolbar">
+      <button id="addRowBtn">➕ 添加行</button>
+      <button id="addColumnBtn">➕ 添加列</button>
+      <button id="bulkDeleteBtn">🗑️ 批量删除</button>
+      <button id="undoBtn">↩️ 撤销</button>
+      <button id="exportBtn">📥 导出 CSV</button>
+      <button id="importBtn">📤 导入 CSV</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="import-options">
+        <div class="addon-input-group">
+          <label for="addonValueInput">附加金额：</label>
+          <input type="number" id="addonValueInput" value="85" min="0" step="1">
+        </div>
+        <div class="flex-label">
+          <input type="checkbox" id="clearBeforeImport" checked>
+          <label for="clearBeforeImport">导入前清空现有数据</label>
+        </div>
+        <div class="flex-label">
+          <input type="checkbox" id="importSortAsc" checked>
+          <label for="importSortAsc">导入后升序排列</label>
+        </div>
+      </div>
+    </div>
+
+    <table id="dataTable">
+      <thead id="tableHead">
+        <tr>
+          <th class="select-all"><input type="checkbox" id="selectAll"></th>
+          <th class="drag-handle" title="拖拽排序"></th>
+          <th onclick="sortTableByColumn(2)" class="sortable serial-number">编号
+            <span class="sort-indicator" id="sort-indicator-2"></span>
+            <input type="hidden" class="col-name" value="编号">
+          </th>
+          <th onclick="sortTableByColumn(3)" class="sortable">系统类型
+            <span class="sort-indicator" id="sort-indicator-3"></span>
+            <input type="hidden" class="col-name" value="系统类型">
+          </th>
+          <th onclick="sortTableByColumn(4)" class="sortable">尺寸
+            <span class="sort-indicator" id="sort-indicator-4"></span>
+            <input type="hidden" class="col-name" value="尺寸">
+          </th>
+          <th onclick="sortTableByColumn(5)" class="sortable">配置参数
+            <span class="sort-indicator" id="sort-indicator-5"></span>
+            <input type="hidden" class="col-name" value="配置参数">
+          </th>
+          <th>原价+85<input type="hidden" class="col-name" value="原价+85"><span style="color:#64748b;font-size:12px;">(自动)</span></th>
+          <th>原价<input type="hidden" class="col-name" value="原价"></th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr draggable="true">
+          <td class="row-select"><input type="checkbox" class="row-checkbox"></td>
+          <td class="drag-handle"></td>
+          <td class="serial-number">1</td>
+          <td>Windows</td>
+          <td>15.6</td>
+          <td>i7/16G/512G</td>
+          <td class="computed-cell">6084.00</td>
+          <td>5999.00</td>
+          <td>
+            <button class="edit-row-btn">编辑</button>
+            <button class="delete-row-btn">删除</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <input type="file" id="csvFileInput" accept=".csv">
+
+  <!-- 模态框 -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="modal-title">添加新报价行</span>
+        <span class="modal-close">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="systemType">系统类型 *</label>
+          <select id="systemType">
+            <option value="">请选择</option>
+            <option value="Android">Android</option>
+            <option value="Windows">Windows</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="sizeSelect">尺寸（英寸） *</label>
+          <select id="sizeSelect">
+            <option value="">请选择尺寸</option>
+            <option value="10.1">10.1</option>
+            <option value="10.4">10.4</option>
+            <option value="12.1">12.1</option>
+            <option value="15">15</option>
+            <option value="17">17</option>
+            <option value="19">19</option>
+            <option value="13.3">13.3</option>
+            <option value="15.6">15.6</option>
+            <option value="18.5">18.5</option>
+            <option value="21.5">21.5</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="configParam">配置参数 *</label>
+          <input type="text" id="configParam" placeholder="例如：i7 / 16GB / 512GB SSD">
+        </div>
+        <div class="form-group">
+          <label for="price">原价（元） *</label>
+          <input type="number" id="price" placeholder="请输入价格" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="cancelBtn">取消</button>
+        <button class="btn-primary" id="confirmBtn">✅ 确认添加</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let colCount = 6; // 增加编号列
+    const PRICE_COL_INDEX = 6; // 因为增加编号列，索引+1
+    const COMPUTED_COL_INDEX = 5;
+    const BASE_COLUMNS = ['编号', '系统类型', '尺寸', '配置参数', '原价+85', '原价'];
+    const addonInput = document.getElementById('addonValueInput');
+    const clearBeforeImportCheckbox = document.getElementById('clearBeforeImport');
+    const importSortAscCheckbox = document.getElementById('importSortAsc');
+
+    // === 排序状态管理 ===
+    let sortState = { columnIndex: -1, isAscending: true };
+
+    // === Undo 历史栈 ===
+    const historyStack = [];
+    const MAX_HISTORY = 10;
+
+    function saveState() {
+      const tableHTML = document.getElementById('dataTable').outerHTML;
+      if (historyStack.length >= MAX_HISTORY) {
+        historyStack.shift();
+      }
+      historyStack.push(tableHTML);
+      updateUndoButton();
+    }
+
+    function restoreState() {
+      if (historyStack.length === 0) return;
+      const lastState = historyStack.pop();
+      const container = document.querySelector('.container');
+      const oldTable = document.getElementById('dataTable');
+      const newTable = new DOMParser().parseFromString(lastState, 'text/html').body.firstChild;
+      oldTable.replaceWith(newTable);
+      updateComputedCells();
+      initAllEvents();
+      updateUndoButton();
+    }
+
+    function updateUndoButton() {
+      const undoBtn = document.getElementById('undoBtn');
+      undoBtn.classList.toggle('enabled', historyStack.length > 0);
+    }
+
+    setTimeout(() => saveState(), 100);
+
+    // === 批量删除状态管理 ===
+    function updateBulkDeleteButton() {
+      const checkedCount = document.querySelectorAll('#tableBody .row-checkbox:checked').length;
+      const bulkBtn = document.getElementById('bulkDeleteBtn');
+      bulkBtn.classList.toggle('enabled', checkedCount > 0);
+    }
+
+    // === 列移动逻辑 ===
+    function moveColumn(fromIndex, toIndex) {
+      if (fromIndex === toIndex || fromIndex < 2 || toIndex < 2) return; // 跳过 checkbox 和 drag 列
+      const headerRow = document.querySelector('#tableHead tr');
+      const headers = Array.from(headerRow.children);
+      if (toIndex < 2 || toIndex >= headers.length - 1) return;
+
+      [headers[fromIndex], headers[toIndex]] = [headers[toIndex], headers[fromIndex]];
+      headerRow.innerHTML = '';
+      headers.forEach(th => headerRow.appendChild(th));
+
+      document.querySelectorAll('#tableBody tr').forEach(row => {
+        const cells = Array.from(row.children);
+        [cells[fromIndex], cells[toIndex]] = [cells[toIndex], cells[fromIndex]];
+        row.innerHTML = '';
+        cells.forEach(cell => row.appendChild(cell));
+      });
+
+      saveState();
+      initAllEvents();
+    }
+
+    // === 拖拽排序逻辑 ===
+    let draggedRow = null;
+
+    function handleDragStart(e) {
+      draggedRow = this;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', this.innerHTML);
+      this.classList.add('dragging');
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      if (draggedRow !== this) {
+        saveState();
+        // 插入到拖拽目标之前或之后
+        const rect = this.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        if (e.clientY < midpoint) {
+          this.parentNode.insertBefore(draggedRow, this);
+        } else {
+          this.parentNode.insertBefore(draggedRow, this.nextSibling);
+        }
+        initAllEvents();
+      }
+      this.classList.remove('dragging');
+      draggedRow = null;
+    }
+
+    function handleDragEnd() {
+      document.querySelectorAll('#tableBody tr').forEach(row => {
+        row.classList.remove('dragging');
+      });
+      draggedRow = null;
+    }
+
+    // === 表格排序逻辑 ===
+    function sortTableByColumn(columnIndex, isAscending = null) {
+      const tbody = document.getElementById('tableBody');
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+
+      // 更新排序状态
+      if (sortState.columnIndex === columnIndex) {
+        if (isAscending !== null) {
+          sortState.isAscending = isAscending;
+        } else {
+          sortState.isAscending = !sortState.isAscending;
+        }
+      } else {
+        sortState.columnIndex = columnIndex;
+        sortState.isAscending = (isAscending !== null) ? isAscending : true;
+      }
+
+      // 更新指示器
+      document.querySelectorAll('.sort-indicator').forEach(el => {
+        el.textContent = '';
+        el.classList.remove('active');
+      });
+      const indicator = document.getElementById(`sort-indicator-${columnIndex}`);
+      indicator.textContent = sortState.isAscending ? '↑' : '↓';
+      indicator.classList.add('active');
+
+      rows.sort((a, b) => {
+        const aText = a.children[columnIndex].textContent.trim();
+        const bText = b.children[columnIndex].textContent.trim();
+
+        // 尝试转换为数字进行排序（适用于编号、尺寸列）
+        const aNum = parseFloat(aText);
+        const bNum = parseFloat(bText);
+
+        let comparison = 0;
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          comparison = aNum - bNum;
+        } else {
+          comparison = aText.localeCompare(bText);
+        }
+
+        return sortState.isAscending ? comparison : -comparison;
+      });
+
+      tbody.innerHTML = '';
+      rows.forEach(row => tbody.appendChild(row));
+
+      saveState();
+      initAllEvents();
+    }
+
+    // === 获取下一个编号 ===
+    function getNextSerialNumber() {
+      const rows = document.querySelectorAll('#tableBody tr');
+      if (rows.length === 0) return 1;
+
+      let maxNum = 0;
+      rows.forEach(row => {
+        const num = parseInt(row.children[2].textContent.trim()) || 0;
+        if (num > maxNum) maxNum = num;
+      });
+      return maxNum + 1;
+    }
+
+    // === 初始化列操作按钮 ===
+    function initColumnActions() {
+      const headerRow = document.querySelector('#tableHead tr');
+      const cols = headerRow.children;
+
+      headerRow.querySelectorAll('.col-actions').forEach(el => el.remove());
+
+      for (let i = 2; i < cols.length - 1; i++) { // 跳过 checkbox 和 drag 列
+        const th = cols[i];
+        const actions = document.createElement('div');
+        actions.className = 'col-actions';
+
+        const upBtn = document.createElement('button');
+        upBtn.className = 'col-btn';
+        upBtn.textContent = '↑';
+        upBtn.title = '上移';
+        upBtn.disabled = (i <= 2);
+        upBtn.onclick = () => moveColumn(i, i - 1);
+
+        const downBtn = document.createElement('button');
+        downBtn.className = 'col-btn';
+        downBtn.textContent = '↓';
+        downBtn.title = '下移';
+        downBtn.disabled = (i >= cols.length - 2);
+        downBtn.onclick = () => moveColumn(i, i + 1);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'col-btn delete-col-btn';
+        delBtn.textContent = '×';
+        delBtn.title = '删除列';
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (colCount > 6) { // 现在基础列是6个
+            saveState();
+            headerRow.removeChild(th);
+            document.querySelectorAll('#tableBody tr').forEach(r => r.removeChild(r.children[i]));
+            colCount--;
+            initAllEvents();
+          } else {
+            alert('基础列不可删除！');
+          }
+        };
+
+        actions.appendChild(upBtn);
+        actions.appendChild(downBtn);
+        actions.appendChild(delBtn);
+        th.appendChild(actions);
+      }
+    }
+
+    // === 表单验证等原有逻辑保持不变（略作调整）===
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalClose = document.querySelector('.modal-close');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const csvFileInput = document.getElementById('csvFileInput');
+
+    const systemTypeEl = document.getElementById('systemType');
+    const sizeSelectEl = document.getElementById('sizeSelect');
+    const configParamEl = document.getElementById('configParam');
+    const priceEl = document.getElementById('price');
+
+    let currentEditRow = null;
+
+    function clearError(el) { el.classList.remove('error'); }
+    function showError(el) { el.classList.add('error'); }
+
+    function validateForm() {
+      let valid = true;
+      [systemTypeEl, sizeSelectEl, configParamEl, priceEl].forEach(clearError);
+
+      if (!systemTypeEl.value) { showError(systemTypeEl); valid = false; }
+      if (!sizeSelectEl.value) { showError(sizeSelectEl); valid = false; }
+      if (!configParamEl.value.trim()) { showError(configParamEl); valid = false; }
+      if (!priceEl.value || isNaN(parseFloat(priceEl.value))) { showError(priceEl); valid = false; }
+
+      if (!valid) {
+        alert('请填写所有带 * 的必填项！');
+        if (!systemTypeEl.value) systemTypeEl.focus();
+        else if (!sizeSelectEl.value) sizeSelectEl.focus();
+        else if (!configParamEl.value.trim()) configParamEl.focus();
+        else priceEl.focus();
+      }
+      return valid;
+    }
+
+    function resetModalForm() {
+      systemTypeEl.value = '';
+      sizeSelectEl.value = '';
+      configParamEl.value = '';
+      priceEl.value = '';
+      currentEditRow = null;
+      modalTitle.textContent = '添加新报价行';
+      confirmBtn.textContent = '✅ 确认添加';
+      [systemTypeEl, sizeSelectEl, configParamEl, priceEl].forEach(clearError);
+    }
+
+    function openAddModal() {
+      resetModalForm();
+      modal.style.display = 'flex';
+    }
+
+    function openEditModal(row) {
+      const cells = row.querySelectorAll('td');
+      resetModalForm();
+      currentEditRow = row;
+      modalTitle.textContent = '✏️ 编辑报价行';
+      confirmBtn.textContent = '💾 保存修改';
+
+      // 跳过编号列
+      systemTypeEl.value = cells[3].textContent; // 系统类型列
+      sizeSelectEl.value = cells[4].textContent; // 尺寸列
+      configParamEl.value = cells[5].textContent; // 配置参数列
+      priceEl.value = parseFloat(cells[7].textContent) || '';
+
+      modal.style.display = 'flex';
+    }
+
+    function closeModalFn() {
+      modal.style.display = 'none';
+      resetModalForm();
+    }
+
+    function handleConfirm() {
+      if (!validateForm()) return;
+
+      const systemType = systemTypeEl.value;
+      const size = sizeSelectEl.value;
+      const configParam = configParamEl.value.trim();
+      const price = parseFloat(priceEl.value);
+
+      saveState();
+
+      const serialNumber = getNextSerialNumber();
+
+      const createRowHTML = (num, sys, sz, cfg, prc) => `
+        <td class="row-select"><input type="checkbox" class="row-checkbox"></td>
+        <td class="drag-handle"></td>
+        <td class="serial-number">${num}</td>
+        <td>${sys}</td>
+        <td>${sz}</td>
+        <td>${cfg}</td>
+        <td class="computed-cell">—</td>
+        <td>${prc.toFixed(2)}</td>
+        <td>
+          <button class="edit-row-btn">编辑</button>
+          <button class="delete-row-btn">删除</button>
+        </td>
+      `;
+
+      if (currentEditRow) {
+        // 编辑时保持原编号
+        const originalSerial = parseInt(currentEditRow.children[2].textContent);
+        currentEditRow.innerHTML = createRowHTML(originalSerial, systemType, size, configParam, price);
+      } else {
+        const row = document.createElement('tr');
+        row.draggable = true;
+        row.innerHTML = createRowHTML(serialNumber, systemType, size, configParam, price);
+        document.getElementById('tableBody').appendChild(row);
+      }
+
+      // 添加后自动按编号排序（默认升序）
+      if (sortState.columnIndex !== 2) {
+        sortTableByColumn(2);
+      }
+
+      initAllEvents();
+      updateComputedCells();
+      closeModalFn();
+    }
+
+    function updateComputedCells() {
+      const addon = parseFloat(addonInput.value) || 0;
+      document.querySelectorAll('#tableBody tr').forEach(tr => {
+        const priceText = tr.children[7]?.textContent || '0';
+        const price = parseFloat(priceText) || 0;
+        const computedCell = tr.children[6];
+        if (computedCell) {
+          computedCell.textContent = (price + addon).toFixed(2);
+        }
+      });
+    }
+
+    function addColumn(colName) {
+      colName = colName.trim() || `列${colCount + 1}`;
+      const headerRow = document.querySelector('#tableHead tr');
+      const existingNames = Array.from(headerRow.querySelectorAll('.col-name')).map(n => n.value);
+      if (existingNames.includes(colName)) return;
+
+      saveState();
+
+      const newTh = document.createElement('th');
+      newTh.innerHTML = `
+        ${colName}
+        <input type="hidden" class="col-name" value="${colName}">
+      `;
+      headerRow.insertBefore(newTh, headerRow.lastElementChild);
+      colCount++;
+
+      document.querySelectorAll('#tableBody tr').forEach(row => {
+        const cell = document.createElement('td');
+        cell.innerHTML = '<input type="text">';
+        row.insertBefore(cell, row.lastElementChild);
+      });
+
+      initAllEvents();
+    }
+
+    // === CSV 相关函数（略，保持不变）===
+    function exportToCSV() {
+      const headers = Array.from(document.querySelectorAll('#tableHead .col-name')).map(el => el.value);
+      const rows = [];
+      document.querySelectorAll('#tableBody tr').forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        const row = [];
+        for (let i = 0; i < headers.length; i++) {
+          let text = '';
+          const realIndex = i + 2; // 跳过 checkbox 和 drag 列
+          if (i === COMPUTED_COL_INDEX - 2) { // 因为 COMPUTED_COL_INDEX=5，但 headers 从0开始，且跳过2列
+            text = tds[realIndex]?.textContent || '';
+          } else if (realIndex >= tds.length - 1) {
+            text = '';
+          } else {
+            text = tds[realIndex]?.textContent || '';
+          }
+          if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+            text = `"${text.replace(/"/g, '""')}"`;
+          }
+          row.push(text);
+        }
+        if (row.some(cell => cell.trim() !== '')) {
+          rows.push(row.join(','));
+        }
+      });
+
+      const csvContent = [headers.join(','), ...rows].join('\n');
+      const blob = new DOMParser().parseFromString('<!DOCTYPE html><body><pre>' + csvContent, 'text/html').body.firstChild;
+      const csvText = blob.textContent;
+      const blobObj = new Blob(['\uFEFF' + csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blobObj);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date().toISOString().slice(0,10).replace(/-/g, '');
+      a.download = `报价表_${now}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function parseCSV(text) {
+      const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+      if (lines.length === 0) return { headers: [], data: [] };
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+      const data = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const row = [];
+        let inQuotes = false;
+        let field = '';
+        for (let j = 0; j < line.length; j++) {
+          const c = line[j];
+          if (c === '"' && !inQuotes) inQuotes = true;
+          else if (c === '"' && inQuotes && line[j + 1] === '"') { field += '"'; j++; }
+          else if (c === '"' && inQuotes) inQuotes = false;
+          else if (c === ',' && !inQuotes) { row.push(field.trim().replace(/^"(.*)"$/, '$1')); field = ''; }
+          else field += c;
+        }
+        row.push(field.trim().replace(/^"(.*)"$/, '$1'));
+        if (row.length === headers.length) data.push(row);
+      }
+      return { headers, data };
+    }
+
+    function importCSV(headers, data) {
+      saveState();
+
+      // 根据选择框决定是否清空现有数据
+      if (clearBeforeImportCheckbox.checked) {
+        document.getElementById('tableBody').innerHTML = '';
+      }
+
+      const tableHead = document.querySelector('#tableHead tr');
+      const existingHeaders = Array.from(tableHead.querySelectorAll('.col-name')).map(n => n.value);
+
+      headers.forEach(header => {
+        if (!existingHeaders.includes(header) && !BASE_COLUMNS.includes(header)) {
+          addColumn(header);
+          existingHeaders.push(header);
+        }
+      });
+
+      data.forEach(rowData => {
+        const newRow = document.createElement('tr');
+        newRow.draggable = true;
+        let html = '<td class="row-select"><input type="checkbox" class="row-checkbox"></td>';
+        html += '<td class="drag-handle"></td>';
+
+        BASE_COLUMNS.forEach((baseCol, idx) => {
+          const dataIdx = headers.indexOf(baseCol);
+          let value = dataIdx !== -1 ? (rowData[dataIdx] || '') : '';
+          
+          if (baseCol === '编号') {
+            // 如果不清空数据，忽略导入的编号，自动分配下一个编号
+            if (!clearBeforeImportCheckbox.checked) {
+              const serialNumber = getNextSerialNumber();
+              html += `<td class="serial-number">${serialNumber}</td>`;
+            } else {
+              // 如果清空数据，使用导入的编号或自动分配
+              const num = parseInt(value) || getNextSerialNumber();
+              html += `<td class="serial-number">${num}</td>`;
+            }
+          } else if (baseCol === '原价+85') {
+            html += '<td class="computed-cell">—</td>';
+          } else {
+            html += `<td>${value}</td>`;
+          }
+        });
+
+        const dynamicCols = existingHeaders.filter(h => !BASE_COLUMNS.includes(h));
+        dynamicCols.forEach(col => {
+          const idx = headers.indexOf(col);
+          const value = idx !== -1 ? (rowData[idx] || '') : '';
+          html += `<td><input type="text" value="${value}"></td>`;
+        });
+
+        html += `
+          <td>
+            <button class="edit-row-btn">编辑</button>
+            <button class="delete-row-btn">删除</button>
+          </td>
+        `;
+        newRow.innerHTML = html;
+        document.getElementById('tableBody').appendChild(newRow);
+      });
+
+      // 根据选择框决定导入后排序方式
+      const isAscending = importSortAscCheckbox.checked;
+      sortTableByColumn(2, isAscending);
+
+      initAllEvents();
+      updateComputedCells();
+    }
+
+    function handleCSVImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const { headers, data } = parseCSV(text);
+        if (data.length === 0) {
+          alert('CSV 文件为空或格式不正确！');
+          return;
+        }
+        importCSV(headers, data);
+      };
+      reader.readAsText(file, 'utf-8');
+      csvFileInput.value = '';
+    }
+
+    // === 全局事件初始化（关键！）===
+    function initAllEvents() {
+      // 行操作
+      document.querySelectorAll('#tableBody .edit-row-btn').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal(btn.closest('tr')));
+      });
+      document.querySelectorAll('#tableBody .delete-row-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          saveState();
+          btn.closest('tr').remove();
+          updateBulkDeleteButton();
+        });
+      });
+
+      // 拖拽排序
+      document.querySelectorAll('#tableBody tr').forEach(row => {
+        row.removeEventListener('dragstart', handleDragStart);
+        row.removeEventListener('dragover', handleDragOver);
+        row.removeEventListener('drop', handleDrop);
+        row.removeEventListener('dragend', handleDragEnd);
+
+        row.addEventListener('dragstart', handleDragStart);
+        row.addEventListener('dragover', handleDragOver);
+        row.addEventListener('drop', handleDrop);
+        row.addEventListener('dragend', handleDragEnd);
+      });
+
+      // 批量选择
+      document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.removeEventListener('change', updateBulkDeleteButton);
+        cb.addEventListener('change', updateBulkDeleteButton);
+      });
+      document.getElementById('selectAll').removeEventListener('change', function () {
+        const checked = this.checked;
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checked);
+        updateBulkDeleteButton();
+      });
+      document.getElementById('selectAll').addEventListener('change', function () {
+        const checked = this.checked;
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checked);
+        updateBulkDeleteButton();
+      });
+
+      // 列操作按钮
+      initColumnActions();
+
+      // 更新计算列
+      updateComputedCells();
+    }
+
+    // === 批量删除逻辑 ===
+    function handleBulkDelete() {
+      const checkedRows = document.querySelectorAll('#tableBody .row-checkbox:checked');
+      if (checkedRows.length === 0) return;
+
+      if (!confirm(`确定要删除选中的 ${checkedRows.length} 行吗？`)) return;
+
+      saveState();
+      checkedRows.forEach(cb => cb.closest('tr').remove());
+      updateBulkDeleteButton();
+    }
+
+    // === 绑定全局事件 ===
+    document.getElementById('addRowBtn').addEventListener('click', openAddModal);
+    document.getElementById('addColumnBtn').addEventListener('click', () => {
+      const name = prompt('请输入新列名：');
+      if (name) addColumn(name);
+    });
+    document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+    document.getElementById('importBtn').addEventListener('click', () => csvFileInput.click());
+    document.getElementById('undoBtn').addEventListener('click', restoreState);
+    document.getElementById('bulkDeleteBtn').addEventListener('click', handleBulkDelete);
+    csvFileInput.addEventListener('change', handleCSVImport);
+    modalClose.addEventListener('click', closeModalFn);
+    cancelBtn.addEventListener('click', closeModalFn);
+    confirmBtn.addEventListener('click', handleConfirm);
+    addonInput.addEventListener('input', () => {
+      if (addonInput.value < 0) addonInput.value = 0;
+      updateComputedCells();
+    });
+
+    // 初始化：按编号列默认升序排序
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        sortTableByColumn(2);
+      }, 100);
+    });
+
+    // 初始化
+    initAllEvents();
+    updateUndoButton();
+    updateBulkDeleteButton();
+  </script>
+</body>
+</html>
