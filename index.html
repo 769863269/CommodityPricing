@@ -903,6 +903,12 @@
         function closeBatchAddModal() {
           batchAddModal.style.display = 'none';
           selectedSizes = [];
+          // 清空表单数据
+          batchSystemType.value = '';
+          batchConfigParam.value = '';
+          customSizeInput.value = '';
+          renderBatchSizeList();
+          renderSelectedSizeList();
         }
         batchAddClose.onclick = closeBatchAddModal;
         batchAddCancel.onclick = closeBatchAddModal;
