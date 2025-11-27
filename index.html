@@ -203,17 +203,18 @@
       border-collapse: collapse;
       margin-top: 10px;
       table-layout: auto; /* 允许表格自动调整列宽 */
+      /* 让每列有最小宽度和最大宽度，自动适应内容 */
+      width: 100%;
     }
 
     th, td {
       padding: 12px 8px;
-      text-align: left;
+      text-align: center;
       border: 1px solid var(--border);
       vertical-align: middle;
-      white-space: nowrap; /* 防止文字换行 */
-      overflow: hidden;
-      text-overflow: ellipsis; /* 超出部分显示省略号 */
-      min-width: 80px; /* 最小列宽 */
+      /* 配置参数、原价+85、原价列允许换行和完整显示 */
+      /* min-width: 100px; 取消全局最小列宽，交由th自适应 */
+      /* max-width: 320px; 取消最大列宽限制 */
     }
 
     th {
@@ -225,6 +226,9 @@
       text-align: center; /* 表头文字居中 */
       font-size: 14px; /* 统一表头字体大小 */
       line-height: 1.4; /* 设置行高防止文字堆叠 */
+      width: fit-content;
+      min-width: unset;
+      max-width: unset;
     }
 
     /* 特殊列的宽度设置 */
@@ -246,52 +250,72 @@
     /* 系统类型列 */
     th:nth-child(4),
     td:nth-child(4) {
-      width: 120px;
-      min-width: 120px;
-      max-width: 150px;
+      width: fit-content;
+      min-width: unset;
+      max-width: unset;
+      text-align: center;
+    }
+    /* 系统类型图标样式 */
+    .system-icon {
+      font-size: 20px;
+      vertical-align: middle;
+      margin-right: 4px;
     }
     
     /* 尺寸列 */
     th:nth-child(5),
     td:nth-child(5) {
-      width: 100px;
-      min-width: 100px;
-      max-width: 120px;
+      width: fit-content;
+      min-width: unset;
+      max-width: unset;
       text-align: center;
     }
     
     /* 配置参数列 - 允许更宽 */
     th:nth-child(6),
     td:nth-child(6) {
-      width: 200px;
-      min-width: 180px;
-      max-width: 250px;
+      width: fit-content;
+      min-width: unset;
+      max-width: unset;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: initial;
+      word-break: break-all;
     }
     
     /* 原价+85列 */
     th:nth-child(7),
     td:nth-child(7) {
-      width: 120px;
-      min-width: 120px;
-      max-width: 140px;
-      text-align: right;
+      width: fit-content;
+      min-width: unset;
+      max-width: unset;
+      /* text-align: right; */
+      white-space: normal;
+      overflow: visible;
+      text-overflow: initial;
     }
     
     /* 原价列 */
     th:nth-child(8),
     td:nth-child(8) {
-      width: 120px;
-      min-width: 120px;
-      max-width: 140px;
-      text-align: right;
+      width: fit-content;
+      min-width: unset;
+      max-width: unset;
+      text-align: center;
+        text-align: center;
+        cursor: pointer;
+        padding: 0 8px;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: initial;
     }
     
     /* 操作列 */
     th:last-child,
     td:last-child {
-      width: 150px;
-      min-width: 150px;
-      max-width: 150px;
+      width: fit-content;
+      min-width: unset;
+      max-width: unset;
       text-align: center;
     }
 
@@ -2034,23 +2058,22 @@
       const buttons = pageButtonsContainer.querySelectorAll('.page-btn:not(#prevPage):not(#nextPage)');
       buttons.forEach(btn => btn.remove());
       
-      // 第五步：动态生成页码按钮
+      // 第五步：只显示当前页和下一个页（如果有）
       if (totalPages > 0) {
-        // 计算显示范围：当前页前后各2页
-        const startPage = Math.max(1, currentPage - 2);
-        const endPage = Math.min(totalPages, currentPage + 2);
-        
-        // 生成页码按钮
-        for (let i = startPage; i <= endPage; i++) {
+        let pages = [currentPage];
+        if (currentPage < totalPages) pages.push(currentPage + 1);
+        // 如果不是第一页，显示前一页
+        if (currentPage > 1) pages = [currentPage - 1, ...pages];
+        // 只保留最多两个页码
+        pages = pages.slice(0, 2);
+        pages.forEach(i => {
           const pageBtn = document.createElement('button');
           pageBtn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
           pageBtn.id = `page${i}`;
           pageBtn.textContent = i;
           pageBtn.onclick = () => goToPage(i);
-          
-          // 在下一页按钮之前插入
           document.getElementById('nextPage').before(pageBtn);
-        }
+        });
       }
     }
 
@@ -2108,11 +2131,15 @@
         let rowHTML = `
           <td class="row-select"><input type="checkbox" class="row-checkbox"></td>
           <td class="serial-number">${item.serialNumber}</td>
-          <td>${item.systemType}</td>
+          <td>
+            ${item.systemType === 'Android' ? '<span class="system-icon" title="Android">🤖</span>' : item.systemType === 'Windows' ? '<span class="system-icon" title="Windows">🪟</span>' : ''}
+          </td>
           <td>${item.size}</td>
           <td>${item.configParam}</td>
           <td class="computed-cell">${item.computedPrice.toFixed(2)}</td>
-          <td>${item.price.toFixed(2)}</td>
+          <td>
+            <input type="text" class="flat-price-input" value="${item.price.toFixed(2)}" readonly ondblclick="editPriceInput(this, ${i})" style="text-align:center; width:80px; border:none; background:transparent; outline:none; font-size:14px; cursor:pointer; padding:8px 0; transition:background 0.2s; border-radius:6px;" />
+          </td>
         `;
         
         // 第五步：添加自定义列
@@ -2141,6 +2168,39 @@
       
       // 第八步：绑定当前页行的事件处理器
       initRowEvents();
+    // ...existing code...
+
+    // 支持双击原价单元格直接编辑
+    window.editPriceInput = function(input, rowIndex) {
+      input.readOnly = false;
+      input.style.background = '#f1f5f9';
+      input.style.border = '1.5px solid #4361ee';
+      input.style.cursor = 'text';
+      input.focus();
+      input.select();
+      // 失焦或回车保存
+      function save() {
+        const val = parseFloat(input.value);
+        if (!isNaN(val)) {
+          allData[rowIndex].price = val;
+          allData[rowIndex].computedPrice = val + (parseFloat(addonInput.value) || 0);
+        }
+        input.readOnly = true;
+        input.style.background = 'transparent';
+        input.style.border = 'none';
+        input.style.cursor = 'pointer';
+        renderTable();
+        updatePagination();
+      }
+      input.onblur = save;
+      input.onkeydown = function(e) {
+        if (e.key === 'Enter') input.blur();
+        if (e.key === 'Escape') {
+          input.value = allData[rowIndex].price.toFixed(2);
+          input.blur();
+        }
+      };
+    };
     }
 
     /**
