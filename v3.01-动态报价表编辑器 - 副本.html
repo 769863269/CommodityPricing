@@ -1,0 +1,2334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>动态报价表-正式版</title>
+  <style>
+        /* 批量添加弹窗优化样式 */
+        #batchAddModal .modal-content {
+          max-width: 420px;
+          position: relative;
+          z-index: 2001;
+          background: #fff;
+          border-radius: 14px;
+          box-shadow: 0 8px 32px #0002;
+          border: 1.5px solid #e5e7eb;
+        }
+        .size-select-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .size-option-btn {
+          min-width: 60px;
+          padding: 8px 16px 8px 12px;
+          border-radius: 7px;
+          border: 1.5px solid #e5e7eb;
+          background: #f4f6fa;
+          color: #222;
+          font-size: 15px;
+          cursor: pointer;
+          transition: all 0.13s;
+          margin-bottom: 4px;
+          position: relative;
+          box-shadow: none;
+          outline: none;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+        }
+        .size-option-btn.selected {
+          background: #e0e7ff;
+          color: var(--primary);
+          border-color: var(--primary);
+          box-shadow: 0 2px 8px #4361ee11;
+        }
+        .size-option-btn .order-badge {
+          position: absolute;
+          top: 4px;
+          right: 6px;
+          background: var(--primary);
+          color: #fff;
+          font-size: 11px;
+          border-radius: 8px;
+          padding: 0 6px;
+          font-weight: bold;
+          opacity: 0.92;
+          pointer-events: none;
+        }
+        .selected-size-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+        .selected-size-item {
+          background: var(--highlight);
+          color: var(--primary);
+          border-radius: 4px;
+          padding: 4px 10px 4px 8px;
+          font-size: 14px;
+          display: flex;
+          align-items: center;
+          border: 1px solid var(--primary);
+        }
+        .selected-size-item .remove-size {
+          margin-left: 4px;
+          color: var(--danger);
+          font-weight: bold;
+          cursor: pointer;
+          font-size: 15px;
+        }
+        #batchAddModal .modal-content { position: relative; }
+        #batchAddModal .modal-bg {
+          position: fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35); z-index:2000;
+        }
+    :root {
+      --primary: #4361ee;
+      --danger: #f72585;
+      --success: #06d6a0;
+      --gray: #64748b;
+      --light-gray: #e2e8f0;
+      --border: #cbd5e1;
+      --text: #1e293b;
+      --white: #ffffff;
+      --shadow: 0 6px 20px rgba(0,0,0,0.12);
+      --radius: 12px;
+      --error: #ef4444;
+      --highlight: #dbeafe;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: #f8fafc;
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #addRowBtn { background-color: var(--primary); color: white; }
+    #addColumnBtn { background-color: #7209b7; color: white; }
+    #exportBtn { background-color: var(--success); color: white; }
+    #importBtn { background-color: #0d9488; color: white; }
+    #undoBtn { 
+      background-color: #64748b; 
+      color: white; 
+      opacity: 0.6; 
+      pointer-events: none; 
+    }
+    #undoBtn.enabled {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #bulkDeleteBtn {
+      background-color: var(--danger);
+      color: white;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    #bulkDeleteBtn.enabled {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    button:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
+
+    .addon-input-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--gray);
+    }
+
+    #addonValueInput {
+      width: 80px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .import-options {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      color: var(--gray);
+      flex-wrap: wrap;
+    }
+
+    .import-options input[type="checkbox"] {
+      margin: 0;
+      transform: scale(1.2);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      table-layout: auto; /* 允许表格自动调整列宽 */
+    }
+
+    th, td {
+      padding: 12px 8px;
+      text-align: left;
+      border: 1px solid var(--border);
+      vertical-align: middle;
+      white-space: nowrap; /* 防止文字换行 */
+      overflow: hidden;
+      text-overflow: ellipsis; /* 超出部分显示省略号 */
+      min-width: 80px; /* 最小列宽 */
+    }
+
+    th {
+      background-color: #f1f5f9;
+      position: relative;
+      font-weight: 600;
+      white-space: nowrap; /* 表头文字不换行 */
+      padding: 12px 16px; /* 表头增加左右内边距 */
+      text-align: center; /* 表头文字居中 */
+      font-size: 14px; /* 统一表头字体大小 */
+      line-height: 1.4; /* 设置行高防止文字堆叠 */
+    }
+
+    /* 特殊列的宽度设置 */
+    .select-all { 
+      width: 50px; 
+      min-width: 50px;
+      max-width: 50px;
+    }
+    
+    /* .drag-handle 宽度样式已移除 */
+    
+    .serial-number { 
+      width: 80px; 
+      min-width: 80px;
+      max-width: 80px;
+      text-align: center;
+    }
+    
+    /* 系统类型列 */
+    th:nth-child(4),
+    td:nth-child(4) {
+      width: 120px;
+      min-width: 120px;
+      max-width: 150px;
+    }
+    
+    /* 尺寸列 */
+    th:nth-child(5),
+    td:nth-child(5) {
+      width: 100px;
+      min-width: 100px;
+      max-width: 120px;
+      text-align: center;
+    }
+    
+    /* 配置参数列 - 允许更宽 */
+    th:nth-child(6),
+    td:nth-child(6) {
+      width: 200px;
+      min-width: 180px;
+      max-width: 250px;
+    }
+    
+    /* 原价+85列 */
+    th:nth-child(7),
+    td:nth-child(7) {
+      width: 120px;
+      min-width: 120px;
+      max-width: 140px;
+      text-align: right;
+    }
+    
+    /* 原价列 */
+    th:nth-child(8),
+    td:nth-child(8) {
+      width: 120px;
+      min-width: 120px;
+      max-width: 140px;
+      text-align: right;
+    }
+    
+    /* 操作列 */
+    th:last-child,
+    td:last-child {
+      width: 150px;
+      min-width: 150px;
+      max-width: 150px;
+      text-align: center;
+    }
+
+    /* 表头内容容器 */
+    .th-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      width: 100%;
+    }
+
+    /* 自定义列的样式 */
+    .custom-column {
+      width: 150px;
+      min-width: 120px;
+      max-width: 200px;
+    }
+
+    /* 表格容器响应式布局 */
+    .table-container {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      box-shadow: 0 0 0 1px var(--border);
+      margin-top: 10px;
+    }
+
+    /* 确保表格在容器中正确显示 */
+    .table-container table {
+      margin: 0;
+      min-width: 100%;
+    }
+
+    /* 响应式设计 - 小屏幕适配 */
+    @media (max-width: 768px) {
+      .container {
+        padding: 12px;
+      }
+      
+      th, td {
+        padding: 8px 4px;
+        font-size: 12px;
+      }
+      
+      .th-content {
+        font-size: 12px;
+      }
+      
+      .select-all, .serial-number {
+        width: 40px;
+        min-width: 40px;
+        max-width: 40px;
+      }
+      
+      th:nth-child(4), td:nth-child(4) { /* 系统类型 */
+        width: 80px;
+        min-width: 80px;
+        max-width: 100px;
+      }
+      
+      th:nth-child(5), td:nth-child(5) { /* 尺寸 */
+        width: 60px;
+        min-width: 60px;
+        max-width: 80px;
+      }
+      
+      th:nth-child(6), td:nth-child(6) { /* 配置参数 */
+        width: 120px;
+        min-width: 100px;
+        max-width: 150px;
+      }
+      
+      th:nth-child(7), td:nth-child(7), /* 原价+85 */
+      th:nth-child(8), td:nth-child(8) { /* 原价 */
+        width: 80px;
+        min-width: 80px;
+        max-width: 100px;
+      }
+      
+      th:last-child, td:last-child { /* 操作 */
+        width: 100px;
+        min-width: 100px;
+        max-width: 100px;
+      }
+      
+      .custom-column {
+        width: 100px;
+        min-width: 80px;
+        max-width: 120px;
+      }
+    }
+
+    /* 超小屏幕适配 */
+    @media (max-width: 480px) {
+      th, td {
+        padding: 6px 2px;
+        font-size: 11px;
+      }
+      
+      .th-content {
+        font-size: 11px;
+        gap: 2px;
+      }
+      
+      .sort-indicator {
+        font-size: 10px;
+      }
+      
+      .col-btn {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+      }
+    }
+
+    /* 排序指示器 */
+    .sort-indicator {
+      margin-left: 4px;
+      font-size: 12px;
+      color: var(--gray);
+    }
+
+    .sort-indicator.active {
+      color: var(--primary);
+    }
+
+    /* 列操作按钮组 */
+    .col-actions {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: none;
+      gap: 4px;
+    }
+
+    th:hover .col-actions { display: flex; }
+
+    .col-btn {
+      width: 22px;
+      height: 22px;
+      border: none;
+      border-radius: 4px;
+      background: var(--gray);
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .col-btn:hover { background: var(--primary); }
+
+    .delete-col-btn {
+      background: var(--danger) !important;
+    }
+
+    input[type="checkbox"] {
+      margin: 0;
+      transform: scale(1.2);
+    }
+
+    .select-all, .row-select, .serial-number {
+      width: 40px;
+      text-align: center;
+    }
+
+    /* .drag-handle 拖拽样式已移除 */
+
+    /* 行高亮 */
+    tr:hover td {
+      background-color: var(--highlight) !important;
+    }
+
+    .selected-row td {
+      background-color: #dbeafe !important;
+    }
+
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+    }
+
+    input.error {
+      border-color: var(--error);
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    }
+
+    .computed-cell {
+      background-color: #f8fafc;
+      color: var(--gray);
+      font-style: italic;
+    }
+
+    .delete-row-btn {
+      background: var(--danger);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .edit-row-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      margin-right: 6px;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.45);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-content {
+      background: var(--white);
+      border-radius: var(--radius);
+      width: 520px;
+      max-width: 95%;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      background: linear-gradient(to right, var(--primary), #3a56d4);
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 24px;
+      color: white;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      transition: background 0.2s;
+    }
+
+    .modal-body { padding: 24px; }
+    .form-group { margin-bottom: 20px; }
+    label {
+      display: block;
+      /* margin-bottom: 8px; */
+      font-weight: 600;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 0 24px 24px;
+    }
+
+    .btn-secondary {
+      background-color: var(--light-gray);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+      font-weight: 600;
+    }
+
+    #csvFileInput { display: none; }
+
+    .flex-label {
+      display: flex;
+      justify-content: center;
+    }
+    #clearBeforeImport,#importSortAsc {
+      margin-right: 5px;
+    }
+    
+    /* 翻页控件样式 */
+    .pagination-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      padding: 10px 0;
+    }
+    
+    .page-info {
+      font-size: 14px;
+      color: var(--text);
+    }
+    
+    .page-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .page-btn {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background-color: var(--white);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .page-btn.active {
+      background-color: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    
+    .page-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .total-info {
+      font-size: 14px;
+      color: var(--gray);
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 动态报价表编辑器</h1>
+    <div class="toolbar">
+      <button id="addRowBtn">➕ 添加行</button>
+      <button id="batchAddRowsBtn">🧩 一键添加行</button>
+      <button id="addColumnBtn">➕ 添加列</button>
+      <button id="bulkDeleteBtn">🗑️ 批量删除</button>
+      <button id="undoBtn">↩️ 撤销</button>
+      <button id="exportBtn">📥 导出 CSV</button>
+      <button id="importBtn">📤 导入 CSV</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="import-options">
+        <div class="addon-input-group">
+          <label for="addonValueInput">附加金额：</label>
+          <input type="number" id="addonValueInput" value="85" min="0" step="1">
+        </div>
+        <div class="flex-label">
+          <input type="checkbox" id="clearBeforeImport" checked>
+          <label for="clearBeforeImport">导入前清空现有数据</label>
+        </div>
+        <div class="flex-label">
+          <input type="checkbox" id="importSortAsc" checked>
+          <label for="importSortAsc">导入后升序排列</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table id="dataTable">
+      <thead id="tableHead">
+        <tr>
+          <th class="select-all">
+            <div class="th-content">
+              <input type="checkbox" id="selectAll">
+            </div>
+          </th>
+          <!-- 拖拽排序列已移除 -->
+          <th onclick="sortTableByColumn(2)" class="sortable serial-number">
+            <div class="th-content">
+              <span>编号</span>
+              <span class="sort-indicator" id="sort-indicator-2"></span>
+              <input type="hidden" class="col-name" value="编号">
+            </div>
+          </th>
+          <th onclick="sortTableByColumn(3)" class="sortable">
+            <div class="th-content">
+              <span>系统类型</span>
+              <span class="sort-indicator" id="sort-indicator-3"></span>
+              <input type="hidden" class="col-name" value="系统类型">
+            </div>
+          </th>
+          <th onclick="sortTableByColumn(4)" class="sortable">
+            <div class="th-content">
+              <span>尺寸</span>
+              <span class="sort-indicator" id="sort-indicator-4"></span>
+              <input type="hidden" class="col-name" value="尺寸">
+            </div>
+          </th>
+          <th onclick="sortTableByColumn(5)" class="sortable">
+            <div class="th-content">
+              <span>配置参数</span>
+              <span class="sort-indicator" id="sort-indicator-5"></span>
+              <input type="hidden" class="col-name" value="配置参数">
+            </div>
+          </th>
+          <th>
+            <div class="th-content">
+              <span>原价+85</span>
+              <span style="color:#64748b;font-size:11px;white-space:nowrap;">(自动)</span>
+              <input type="hidden" class="col-name" value="原价+85">
+            </div>
+          </th>
+          <th>
+            <div class="th-content">
+              <span>原价</span>
+              <input type="hidden" class="col-name" value="原价">
+            </div>
+          </th>
+          <th>
+            <div class="th-content">
+              <span>操作</span>
+            </div>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <!-- 行数据将通过JavaScript动态生成 -->
+      </tbody>
+      </table>
+    </div>
+    
+    <!-- 翻页控件 -->
+    <div class="pagination-controls">
+      <div class="page-info">
+        第 <span id="currentPage">1</span> 页，共 <span id="totalPages">1</span> 页
+      </div>
+      <div class="page-buttons">
+        <button class="page-btn" id="prevPage" disabled>上一页</button>
+        <button class="page-btn active" id="page1">1</button>
+        <button class="page-btn" id="nextPage" disabled>下一页</button>
+      </div>
+    </div>
+    
+    <!-- 总数据信息 -->
+    <div class="total-info">
+      共 <span id="totalRows">0</span> 条数据
+    </div>
+  </div>
+
+  <input type="file" id="csvFileInput" accept=".csv">
+
+  <!-- 批量添加尺寸弹窗 -->
+  <div id="batchAddModal" class="modal">
+    <div class="modal-bg" id="batchAddBg"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>批量添加尺寸行</span>
+        <span class="modal-close" id="batchAddClose">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>系统类型：</label>
+          <select id="batchSystemType" style="width:100%;padding:8px 10px;border-radius:7px;border:1.5px solid #e5e7eb;font-size:15px;margin-bottom:10px;">
+            <option value="">请选择</option>
+            <option value="Android">Android</option>
+            <option value="Windows">Windows</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>配置参数：</label>
+          <input type="text" id="batchConfigParam" placeholder="如 i7/16G/512G" style="width:100%;padding:8px 10px;border-radius:7px;border:1.5px solid #e5e7eb;font-size:15px;margin-bottom:10px;">
+        </div>
+        <div class="form-group">
+          <label>请选择要添加的尺寸：</label>
+          <div class="size-select-list" id="batchSizeList"></div>
+          <input type="text" id="customSizeInput" placeholder="自定义尺寸，如 22 或 23.8" style="width:60%;margin-right:8px;">
+          <button type="button" id="addCustomSizeBtn" class="btn-primary" style="padding:6px 12px;font-size:13px;">添加尺寸</button>
+        </div>
+        <div style="margin:10px 0 0 0;">
+          <label>已选尺寸：</label>
+          <div class="selected-size-list" id="selectedSizeList"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="batchAddCancel">取消</button>
+        <button class="btn-primary" id="batchAddConfirm">✅ 批量添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模态框 -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="modal-title">添加新报价行</span>
+        <span class="modal-close">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="systemType">系统类型 *</label>
+          <select id="systemType">
+            <option value="">请选择</option>
+            <option value="Android">Android</option>
+            <option value="Windows">Windows</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="sizeSelect">尺寸（英寸） *</label>
+          <select id="sizeSelect">
+            <option value="">请选择尺寸</option>
+            <option value="10.1">10.1</option>
+            <option value="10.4">10.4</option>
+            <option value="12.1">12.1</option>
+            <option value="15">15</option>
+            <option value="17">17</option>
+            <option value="19">19</option>
+            <option value="13.3">13.3</option>
+            <option value="15.6">15.6</option>
+            <option value="18.5">18.5</option>
+            <option value="21.5">21.5</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="configParam">配置参数 *</label>
+          <input type="text" id="configParam" placeholder="例如：i7 / 16GB / 512GB SSD">
+        </div>
+        <div class="form-group">
+          <label for="price">原价（元） *</label>
+          <input type="number" id="price" placeholder="请输入价格" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="cancelBtn">取消</button>
+        <button class="btn-primary" id="confirmBtn">✅ 确认添加</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+          // 批量添加弹窗新控件引用
+          const batchSystemType = document.getElementById('batchSystemType');
+          const batchConfigParam = document.getElementById('batchConfigParam');
+        // ========== 批量添加尺寸弹窗优化 ==========
+        const batchAddModal = document.getElementById('batchAddModal');
+        const batchAddClose = document.getElementById('batchAddClose');
+        const batchAddCancel = document.getElementById('batchAddCancel');
+        const batchAddConfirm = document.getElementById('batchAddConfirm');
+        const batchSizeList = document.getElementById('batchSizeList');
+        const customSizeInput = document.getElementById('customSizeInput');
+        const addCustomSizeBtn = document.getElementById('addCustomSizeBtn');
+        const selectedSizeList = document.getElementById('selectedSizeList');
+        const batchAddBg = document.getElementById('batchAddBg');
+
+        const DEFAULT_SIZES = ["10.1","10.4","12.1","13.3","15","15.6","17","18.5","19","21.5"];
+        let batchSizeOptions = [...DEFAULT_SIZES];
+        let selectedSizes = [];
+
+        function openBatchAddModal() {
+          renderBatchSizeList();
+          renderSelectedSizeList();
+          customSizeInput.value = '';
+          batchAddModal.style.display = 'flex';
+        }
+        function closeBatchAddModal() {
+          batchAddModal.style.display = 'none';
+          selectedSizes = [];
+        }
+        batchAddClose.onclick = closeBatchAddModal;
+        batchAddCancel.onclick = closeBatchAddModal;
+        batchAddBg.onclick = closeBatchAddModal;
+
+        function renderBatchSizeList() {
+          batchSizeList.innerHTML = '';
+          batchSizeOptions.forEach(size => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'size-option-btn' + (selectedSizes.includes(size) ? ' selected' : '');
+            btn.textContent = size + ' 英寸';
+            // 顺序号
+            const idx = selectedSizes.indexOf(size);
+            if (idx !== -1) {
+              const badge = document.createElement('span');
+              badge.className = 'order-badge';
+              badge.textContent = idx + 1;
+              btn.appendChild(badge);
+            }
+            btn.onclick = function() {
+              if (!selectedSizes.includes(size)) {
+                selectedSizes.push(size);
+              } else {
+                selectedSizes = selectedSizes.filter(s => s !== size);
+              }
+              renderBatchSizeList();
+              renderSelectedSizeList();
+            };
+            batchSizeList.appendChild(btn);
+          });
+        }
+        function renderSelectedSizeList() {
+          selectedSizeList.innerHTML = '';
+          selectedSizes.forEach(size => {
+            const item = document.createElement('div');
+            item.className = 'selected-size-item';
+            item.innerHTML = `${size} 英寸 <span class="remove-size" title="移除">×</span>`;
+            item.querySelector('.remove-size').onclick = function() {
+              selectedSizes = selectedSizes.filter(s => s !== size);
+              renderBatchSizeList();
+              renderSelectedSizeList();
+            };
+            selectedSizeList.appendChild(item);
+          });
+        }
+        addCustomSizeBtn.onclick = function() {
+          const val = customSizeInput.value.trim();
+          if (!val) return;
+          if (batchSizeOptions.includes(val)) {
+            alert('该尺寸已存在！');
+            return;
+          }
+          batchSizeOptions.push(val);
+          renderBatchSizeList();
+          customSizeInput.value = '';
+        };
+        batchAddConfirm.onclick = function() {
+          if (selectedSizes.length === 0) {
+            alert('请至少选择一个尺寸！');
+            return;
+          }
+          // 校验系统类型
+          const sysType = batchSystemType.value;
+          if (!sysType) {
+            alert('请选择系统类型！');
+            batchSystemType.focus();
+            return;
+          }
+          const configParam = batchConfigParam.value.trim();
+          if (!configParam) {
+            alert('请填写配置参数！');
+            batchConfigParam.focus();
+            return;
+          }
+          saveState();
+          const nextSerial = getNextSerialNumber();
+          selectedSizes.forEach((size, idx) => {
+            allData.push({
+              serialNumber: nextSerial + idx,
+              systemType: sysType,
+              size: size,
+              configParam: configParam,
+              price: 0,
+              computedPrice: 0 + (parseFloat(addonInput.value) || 0)
+            });
+          });
+          renderTable();
+          updatePagination();
+          // 自动跳转到最新页
+          currentPage = Math.ceil(allData.length / ROWS_PER_PAGE) || 1;
+          renderTable();
+          updatePagination();
+          closeBatchAddModal();
+        };
+        document.getElementById('batchAddRowsBtn').onclick = openBatchAddModal;
+    /**
+     * 动态报价表编辑器 - 主要功能模块
+     * 
+     * 功能概述：
+     * 1. 数据管理：添加、编辑、删除、批量删除报价记录
+     * 2. 排序功能：支持多列排序，包括升序/降序切换
+     * 3. 分页显示：每页显示10条记录，支持翻页导航
+     * 4. CSV导入导出：支持数据的批量导入导出
+     * 5. 撤销操作：最多保存10步操作历史
+     * 6. 动态列管理：支持添加/删除自定义列
+     * 7. 自动计算：原价+附加值的自动计算
+     */
+
+    // === 全局变量和数据存储 ===
+    
+    /**
+     * 存储所有报价数据的数组
+     * 每个元素包含：serialNumber(编号), systemType(系统类型), size(尺寸), 
+     * configParam(配置参数), price(原价), computedPrice(计算价格)
+     */
+    let allData = [];
+    
+    /**
+     * 当前显示的页码，从1开始计数
+     */
+    let currentPage = 1;
+    
+    /**
+     * 每页显示的行数常量
+     */
+    const ROWS_PER_PAGE = 10;
+    
+    /**
+     * 当前列数量（动态变化）
+     */
+    let colCount = 6;
+    
+    /**
+     * 价格相关列的索引常量
+     * PRICE_COL_INDEX: 原价列索引
+     * COMPUTED_COL_INDEX: 计算价格列索引
+     */
+    const PRICE_COL_INDEX = 6;
+    const COMPUTED_COL_INDEX = 5;
+    
+    /**
+     * 基础列名数组，包含系统默认的所有列
+     * 可以动态添加自定义列
+     */
+    const BASE_COLUMNS = ['编号', '系统类型', '尺寸', '配置参数', '原价+85', '原价'];
+    
+    /**
+     * DOM元素引用缓存
+     */
+    const addonInput = document.getElementById('addonValueInput');
+    const clearBeforeImportCheckbox = document.getElementById('clearBeforeImport');
+    const importSortAscCheckbox = document.getElementById('importSortAsc');
+
+    // === 排序状态管理模块 ===
+    
+    /**
+     * 排序状态对象
+     * columnIndex: 当前排序的列索引（-1表示未排序）
+     * isAscending: 排序方向，true为升序，false为降序
+     */
+    let sortState = { columnIndex: -1, isAscending: true };
+
+    // === 撤销操作历史栈模块 ===
+    
+    /**
+     * 操作历史栈，用于实现撤销功能
+     * 最多保存MAX_HISTORY个操作状态
+     */
+    const historyStack = [];
+    
+    /**
+     * 最大历史记录数量
+     */
+    const MAX_HISTORY = 10;
+
+    /**
+     * 保存当前状态到历史栈
+     * 功能：在执行重要操作前保存当前的数据状态、页码和排序状态
+     * 边界条件：当历史栈达到最大长度时，删除最早的记录
+     */
+    function saveState() {
+      // 创建当前状态的深拷贝
+      const state = {
+        allData: [...allData], // 复制数据数组
+        currentPage: currentPage, // 保存当前页码
+        sortState: {...sortState} // 复制排序状态
+      };
+      
+      // 如果历史栈已满，移除最早的记录
+      if (historyStack.length >= MAX_HISTORY) {
+        historyStack.shift();
+      }
+      
+      // 将新状态压入栈顶
+      historyStack.push(state);
+      
+      // 更新撤销按钮的可用状态
+      updateUndoButton();
+    }
+
+    /**
+     * 恢复上一个状态
+     * 功能：从历史栈中弹出最近的状态并恢复
+     * 边界条件：如果历史栈为空，则不执行任何操作
+     */
+    function restoreState() {
+      if (historyStack.length === 0) return;
+      
+      // 弹出最近的保存状态
+      const lastState = historyStack.pop();
+      
+      // 恢复各个状态
+      allData = lastState.allData;
+      currentPage = lastState.currentPage;
+      sortState = lastState.sortState;
+      
+      // 重新渲染界面
+      renderTable();
+      updatePagination();
+      updateUndoButton();
+    }
+
+    /**
+     * 更新撤销按钮的启用/禁用状态
+     * 功能：根据历史栈是否为空来控制按钮的可用性
+     */
+    function updateUndoButton() {
+      const undoBtn = document.getElementById('undoBtn');
+      // 如果历史栈不为空，启用按钮；否则禁用
+      undoBtn.classList.toggle('enabled', historyStack.length > 0);
+    }
+
+    // 初始化时保存初始状态，延迟100ms确保DOM完全加载
+    setTimeout(() => saveState(), 100);
+
+    // === 批量删除状态管理模块 ===
+    
+    /**
+     * 更新批量删除按钮的状态
+     * 功能：根据选中的行数来启用或禁用批量删除按钮
+     * 算法：统计当前页面选中的复选框数量
+     */
+    function updateBulkDeleteButton() {
+      // 获取当前页面选中的行复选框数量
+      const checkedCount = document.querySelectorAll('#tableBody .row-checkbox:checked').length;
+      const bulkBtn = document.getElementById('bulkDeleteBtn');
+      // 如果有选中行，启用按钮；否则禁用
+      bulkBtn.classList.toggle('enabled', checkedCount > 0);
+    }
+
+    // === 表格排序逻辑模块 ===
+    
+    /**
+     * 按指定列对表格进行排序
+     * @param {number} columnIndex - 要排序的列索引（从0开始）
+     * @param {boolean|null} isAscending - 排序方向，null表示自动切换
+     * 
+     * 功能说明：
+     * 1. 更新排序状态和UI指示器
+     * 2. 对allData数组进行排序
+     * 3. 重新渲染表格和分页
+     * 
+     * 排序算法：
+     * - 优先尝试数字排序（适用于编号、尺寸、价格列）
+     * - 降级为字符串排序（适用于文本列）
+     * - 支持升序/降序切换
+     */
+    function sortTableByColumn(columnIndex, isAscending = null) {
+      // === 第一步：更新排序状态 ===
+      if (sortState.columnIndex === columnIndex) {
+        // 如果是同一列，切换排序方向或使用指定方向
+        if (isAscending !== null) {
+          sortState.isAscending = isAscending;
+        } else {
+          sortState.isAscending = !sortState.isAscending;
+        }
+      } else {
+        // 如果是不同列，设置新列并默认升序
+        sortState.columnIndex = columnIndex;
+        sortState.isAscending = (isAscending !== null) ? isAscending : true;
+      }
+
+      // === 第二步：更新UI指示器 ===
+      // 清除所有排序指示器
+      document.querySelectorAll('.sort-indicator').forEach(el => {
+        el.textContent = '';
+        el.classList.remove('active');
+      });
+      
+      // 设置当前列的排序指示器
+      const indicator = document.getElementById(`sort-indicator-${columnIndex}`);
+      indicator.textContent = sortState.isAscending ? '↑' : '↓';
+      indicator.classList.add('active');
+
+      // === 第三步：执行数据排序 ===
+      allData.sort((a, b) => {
+        let aText, bText;
+        
+        // 根据列索引获取对应的比较值
+        if (columnIndex === 2) { // 编号列
+          aText = a.serialNumber.toString();
+          bText = b.serialNumber.toString();
+        } else if (columnIndex === 3) { // 系统类型
+          aText = a.systemType;
+          bText = b.systemType;
+        } else if (columnIndex === 4) { // 尺寸
+          aText = a.size;
+          bText = b.size;
+        } else if (columnIndex === 5) { // 配置参数
+          aText = a.configParam;
+          bText = b.configParam;
+        } else if (columnIndex === 7) { // 原价
+          aText = a.price.toString();
+          bText = b.price.toString();
+        } else {
+          return 0; // 其他列不参与排序
+        }
+
+        // === 第四步：智能排序算法 ===
+        // 尝试转换为数字进行排序（适用于编号、尺寸、价格列）
+        const aNum = parseFloat(aText);
+        const bNum = parseFloat(bText);
+
+        let comparison = 0;
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          // 数字比较：直接相减得到正负值
+          comparison = aNum - bNum;
+        } else {
+          // 字符串比较：使用本地化字符串比较
+          comparison = aText.localeCompare(bText);
+        }
+
+        // 根据排序方向返回比较结果
+        return sortState.isAscending ? comparison : -comparison;
+      });
+
+      // === 第五步：重新渲染界面 ===
+      renderTable();
+      updatePagination();
+    }
+
+    // === 编号生成模块 ===
+    
+    /**
+     * 获取下一个可用的编号
+     * 功能：在现有数据中找到最大的编号，然后返回+1的值
+     * 边界条件：如果数据为空，返回1
+     * 算法：遍历所有数据项，找到最大的serialNumber值
+     * @returns {number} 下一个可用的编号
+     */
+    function getNextSerialNumber() {
+      if (allData.length === 0) return 1;
+      
+      let maxNum = 0;
+      // 遍历所有数据，找到最大编号
+      allData.forEach(item => {
+        if (item.serialNumber > maxNum) maxNum = item.serialNumber;
+      });
+      
+      return maxNum + 1;
+    }
+
+    // === 模态框表单管理模块 ===
+    
+    /**
+     * DOM元素引用缓存
+     * 缓存常用的DOM元素以提高性能
+     */
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modal-title');
+    // 支持多个关闭按钮
+    const modalCloseBtns = document.querySelectorAll('#modal .modal-close');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const csvFileInput = document.getElementById('csvFileInput');
+
+    /**
+     * 表单输入元素引用
+     */
+    const systemTypeEl = document.getElementById('systemType');
+    const sizeSelectEl = document.getElementById('sizeSelect');
+    const configParamEl = document.getElementById('configParam');
+    const priceEl = document.getElementById('price');
+
+    /**
+     * 当前编辑的行对象，null表示新增模式
+     */
+    let currentEditRow = null;
+
+    /**
+     * 清除表单元素的错误状态样式
+     * @param {HTMLElement} el - 要清除错误的DOM元素
+     */
+    function clearError(el) { 
+      el.classList.remove('error'); 
+    }
+    
+    /**
+     * 为表单元素添加错误状态样式
+     * @param {HTMLElement} el - 要添加错误的DOM元素
+     */
+    function showError(el) { 
+      el.classList.add('error'); 
+    }
+
+    /**
+     * 验证表单输入的完整性
+     * 功能：检查所有必填字段是否已填写且格式正确
+     * 验证规则：
+     * 1. 系统类型：不能为空
+     * 2. 尺寸：不能为空
+     * 3. 配置参数：不能为空或仅包含空白字符
+     * 4. 价格：必须为有效数字
+     * 
+     * @returns {boolean} 验证是否通过
+     */
+    function validateForm() {
+      let valid = true;
+      
+      // 首先清除所有字段的错误状态
+      [systemTypeEl, sizeSelectEl, configParamEl, priceEl].forEach(clearError);
+
+      // 逐个验证必填字段
+      if (!systemTypeEl.value) { 
+        showError(systemTypeEl); 
+        valid = false; 
+      }
+      
+      if (!sizeSelectEl.value) { 
+        showError(sizeSelectEl); 
+        valid = false; 
+      }
+      
+      if (!configParamEl.value.trim()) { 
+        showError(configParamEl); 
+        valid = false; 
+      }
+      
+      if (!priceEl.value || isNaN(parseFloat(priceEl.value))) { 
+        showError(priceEl); 
+        valid = false; 
+      }
+
+      // 如果验证失败，显示错误提示并聚焦到第一个错误字段
+      if (!valid) {
+        alert('请填写所有带 * 的必填项！');
+        
+        // 按优先级顺序聚焦到第一个空字段
+        if (!systemTypeEl.value) systemTypeEl.focus();
+        else if (!sizeSelectEl.value) sizeSelectEl.focus();
+        else if (!configParamEl.value.trim()) configParamEl.focus();
+        else priceEl.focus();
+      }
+      
+      return valid;
+    }
+
+    /**
+     * 重置模态框表单到初始状态
+     * 功能：清空所有输入字段，清除错误状态，重置为新增模式
+     */
+    function resetModalForm() {
+      // 清空所有输入字段
+      systemTypeEl.value = '';
+      sizeSelectEl.value = '';
+      configParamEl.value = '';
+      priceEl.value = '';
+      
+      // 重置编辑状态
+      currentEditRow = null;
+      
+      // 恢复默认UI文本
+      modalTitle.textContent = '添加新报价行';
+      confirmBtn.textContent = '✅ 确认添加';
+      
+      // 清除所有字段的错误状态
+      [systemTypeEl, sizeSelectEl, configParamEl, priceEl].forEach(clearError);
+    }
+
+    /**
+     * 打开新增模式的模态框
+     * 功能：重置表单并显示模态框，用于添加新的报价记录
+     */
+    function openAddModal() {
+      resetModalForm();
+      modal.style.display = 'flex';
+    }
+
+    /**
+     * 打开编辑模式的模态框
+     * @param {HTMLElement} row - 要编辑的行元素
+     * 
+     * 功能：将选中行的数据填充到表单中，切换为编辑模式
+     * 算法：
+     * 1. 从行的data-index属性获取数据索引
+     * 2. 从allData数组中获取对应的数据
+     * 3. 将数据填充到表单字段
+     * 4. 更新UI为编辑模式
+     */
+    function openEditModal(row) {
+      // 获取当前行的数据索引
+      const rowIndex = parseInt(row.dataset.index);
+      const rowData = allData[rowIndex];
+      
+      // 重置表单并设置为编辑模式
+      resetModalForm();
+      currentEditRow = row;
+      modalTitle.textContent = '✏️ 编辑报价行';
+      confirmBtn.textContent = '💾 保存修改';
+
+      // 填充表单数据
+      systemTypeEl.value = rowData.systemType;
+      sizeSelectEl.value = rowData.size;
+      configParamEl.value = rowData.configParam;
+      priceEl.value = rowData.price;
+
+      // 显示模态框
+      modal.style.display = 'flex';
+    }
+
+    /**
+     * 关闭模态框
+     * 功能：隐藏模态框并重置表单状态
+     */
+    function closeModalFn() {
+      modal.style.display = 'none';
+      resetModalForm();
+    }
+
+    /**
+     * 处理表单确认提交
+     * 功能：根据当前模式（新增/编辑）处理表单数据
+     * 算法流程：
+     * 1. 验证表单数据
+     * 2. 保存当前状态（用于撤销）
+     * 3. 根据模式执行新增或更新操作
+     * 4. 自动计算附加价格
+     * 5. 重新排序和渲染表格
+     * 6. 新增模式下自动跳转到新数据所在页面
+     */
+    function handleConfirm() {
+      // 第一步：验证表单
+      if (!validateForm()) return;
+
+      // 第二步：提取表单数据
+      const systemType = systemTypeEl.value;
+      const size = sizeSelectEl.value;
+      const configParam = configParamEl.value.trim();
+      const price = parseFloat(priceEl.value);
+
+      // 第三步：保存状态（用于撤销）
+      saveState();
+
+      let newSerialNumber;
+      
+      // 第四步：根据模式处理数据
+      if (currentEditRow) {
+        // 编辑模式：更新现有数据
+        const rowIndex = parseInt(currentEditRow.dataset.index);
+        allData[rowIndex] = {
+          serialNumber: allData[rowIndex].serialNumber, // 保持原编号不变
+          systemType,
+          size,
+          configParam,
+          price,
+          computedPrice: price + (parseFloat(addonInput.value) || 0) // 自动计算附加价格
+        };
+      } else {
+        // 新增模式：创建新数据
+        newSerialNumber = getNextSerialNumber(); // 获取新编号
+        allData.push({
+          serialNumber: newSerialNumber,
+          systemType,
+          size,
+          configParam,
+          price,
+          computedPrice: price + (parseFloat(addonInput.value) || 0) // 自动计算附加价格
+        });
+      }
+
+      // 第五步：重新排序和渲染
+      // 如果当前不是按编号排序，则切换到编号排序
+      if (sortState.columnIndex !== 2) {
+        sortTableByColumn(2);
+      } else {
+        // 否则直接重新渲染
+        renderTable();
+        updatePagination();
+      }
+
+      // 第六步：新增模式下自动跳转到新数据所在页面
+      if (!currentEditRow && newSerialNumber) {
+        // 根据新数据的编号找到其在排序后数组中的位置
+        const newDataIndex = allData.findIndex(item => item.serialNumber === newSerialNumber);
+        if (newDataIndex !== -1) {
+          // 计算该数据所在的页码（页码从1开始）
+          const targetPage = Math.floor(newDataIndex / ROWS_PER_PAGE) + 1;
+          // 如果不在当前页，则跳转到目标页
+          if (targetPage !== currentPage) {
+            goToPage(targetPage);
+          }
+        }
+      }
+
+      // 第七步：关闭模态框
+      closeModalFn();
+    }
+
+    /**
+     * 更新所有计算价格字段
+     * 功能：当附加金额改变时，重新计算所有记录的"原价+附加值"
+     * 算法：遍历所有数据，为每项重新计算computedPrice
+     */
+    function updateComputedCells() {
+      const addon = parseFloat(addonInput.value) || 0;
+      
+      // 遍历所有数据项，更新计算价格
+      allData.forEach(item => {
+        item.computedPrice = item.price + addon;
+      });
+      
+      // 重新渲染表格以显示更新后的价格
+      renderTable();
+    }
+
+    // === 动态列管理模块 ===
+    
+    /**
+     * 添加新的自定义列
+     * @param {string} colName - 新列的名称
+     * 
+     * 功能：向表格中添加自定义列，支持排序和删除
+     * 算法流程：
+     * 1. 检查列名是否重复
+     * 2. 更新BASE_COLUMNS数组
+     * 3. 创建表头DOM元素
+     * 4. 为所有现有数据添加新字段
+     * 5. 重新渲染表格
+     * 
+     * 边界条件：
+     * - 列名不能重复
+     * - 新列默认值为空字符串
+     */
+    function addColumn(colName) {
+      // 第一步：保存状态（用于撤销）
+      saveState();
+      
+      // 第二步：检查列名唯一性
+      const existingColNames = Array.from(document.querySelectorAll('#tableHead th .col-name')).map(input => input.value);
+      if (existingColNames.includes(colName)) {
+        alert(`列名 "${colName}" 已存在！`);
+        return;
+      }
+      
+      // 第三步：更新列名数组
+      BASE_COLUMNS.push(colName);
+      
+      // 第四步：创建并插入表头
+      const headerRow = document.querySelector('#tableHead tr');
+      const newHeaderCell = document.createElement('th');
+      newHeaderCell.className = 'sortable custom-column';
+      newHeaderCell.onclick = () => sortTableByColumn(BASE_COLUMNS.length + 1);
+      newHeaderCell.innerHTML = `
+        <div class="th-content">
+          <span>${colName}</span>
+          <span class="sort-indicator" id="sort-indicator-${BASE_COLUMNS.length + 1}"></span>
+          <input type="hidden" class="col-name" value="${colName}">
+          <div class="col-actions">
+            <button class="col-btn delete-col-btn" onclick="deleteColumn('${colName}', ${BASE_COLUMNS.length + 1})">-</button>
+          </div>
+        </div>
+      `;
+      // 在操作列之前插入新列
+      headerRow.insertBefore(newHeaderCell, headerRow.lastElementChild);
+      
+      // 第五步：为所有数据项添加新字段
+      allData.forEach(item => {
+        if (!item.hasOwnProperty(colName)) {
+          item[colName] = ''; // 默认值为空字符串
+        }
+      });
+      
+      // 第六步：重新渲染界面
+      renderTable();
+      updatePagination();
+    }
+
+    /**
+     * 删除指定列
+     * @param {string} colName - 要删除的列名
+     * @param {number} colIndex - 列的索引位置
+     * 
+     * 功能：从表格中完全移除指定列，包括数据和DOM
+     * 算法流程：
+     * 1. 用户确认删除操作
+     * 2. 保存状态（用于撤销）
+     * 3. 从BASE_COLUMNS数组中移除列名
+     * 4. 从所有数据项中删除对应字段
+     * 5. 从DOM中移除表头和所有行中的单元格
+     * 6. 更新排序指示器的ID和事件绑定
+     * 
+     * 边界条件：
+     * - 需要用户确认才能删除
+     * - 删除后需要重新绑定排序事件
+     */
+    function deleteColumn(colName, colIndex) {
+      // 第一步：用户确认
+      if (!confirm(`确定要删除列 "${colName}" 吗？`)) return;
+      
+      // 第二步：保存状态（用于撤销）
+      saveState();
+      
+      // 第三步：从列名数组中移除
+      const colIndexInBase = BASE_COLUMNS.indexOf(colName);
+      if (colIndexInBase !== -1) {
+        BASE_COLUMNS.splice(colIndexInBase, 1);
+      }
+      
+      // 第四步：从所有数据项中移除字段
+      allData.forEach(item => {
+        delete item[colName];
+      });
+      
+      // 第五步：从DOM中移除表头
+      const headerRow = document.querySelector('#tableHead tr');
+      const headerCells = headerRow.querySelectorAll('th');
+      if (headerCells[colIndex]) {
+        headerRow.removeChild(headerCells[colIndex]);
+      }
+      
+      // 第六步：从所有行中移除对应单元格
+      const rows = document.querySelectorAll('#tableBody tr');
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td, th');
+        if (cells[colIndex]) {
+          row.removeChild(cells[colIndex]);
+        }
+      });
+      
+      // 第七步：更新排序指示器ID
+      document.querySelectorAll('.sort-indicator').forEach((el, idx) => {
+        if (idx >= colIndex) {
+          el.id = `sort-indicator-${idx}`;
+        }
+      });
+      
+      // 第八步：重新绑定排序事件
+      const sortableHeaders = document.querySelectorAll('#tableHead th.sortable');
+      sortableHeaders.forEach((header, index) => {
+        header.onclick = () => sortTableByColumn(index + 1);
+      });
+    }
+
+    // === CSV导入导出模块 ===
+    
+    /**
+     * 导出数据为CSV文件
+     * 功能：将当前表格数据导出为CSV格式文件
+     * 算法流程：
+     * 1. 构建表头行
+     * 2. 遍历数据构建内容行
+     * 3. 处理特殊字符（逗号、引号、换行符）
+     * 4. 生成Blob对象并下载
+     * 
+     * 特殊处理：
+     * - 数字字段保留两位小数
+     * - 包含特殊字符的字段用双引号包围
+     * - 文件名包含当前日期
+     */
+    function exportToCSV() {
+      // 第一步：构建表头
+      const headers = [...BASE_COLUMNS];
+      
+      // 第二步：构建数据行
+      const rows = allData.map(item => {
+        const row = [];
+        
+        // 根据列名提取对应数据
+        BASE_COLUMNS.forEach(colName => {
+          if (colName === '编号') {
+            row.push(item.serialNumber);
+          } else if (colName === '系统类型') {
+            row.push(item.systemType);
+          } else if (colName === '尺寸') {
+            row.push(item.size);
+          } else if (colName === '配置参数') {
+            row.push(item.configParam);
+          } else if (colName === '原价+85') {
+            row.push(item.computedPrice.toFixed(2)); // 保留两位小数
+          } else if (colName === '原价') {
+            row.push(item.price.toFixed(2)); // 保留两位小数
+          } else {
+            // 自定义列，如果不存在则使用空字符串
+            row.push(item[colName] || '');
+          }
+        });
+        
+        // 第三步：处理CSV特殊字符
+        return row.map(field => {
+          const fieldStr = field.toString();
+          // 如果字段包含逗号、引号或换行符，需要用双引号包围
+          if (fieldStr.includes(',') || fieldStr.includes('"') || fieldStr.includes('\n')) {
+            // 将字段内的双引号转义为两个双引号
+            return `"${fieldStr.replace(/"/g, '""')}"`;
+          }
+          return field;
+        }).join(',');
+      });
+      
+      // 第四步：生成CSV内容
+      const csvContent = [headers.join(','), ...rows].join('\n');
+      
+      // 第五步：创建下载链接
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // 生成包含日期的文件名
+      const now = new Date().toISOString().slice(0,10).replace(/-/g, '');
+      a.download = `报价表_${now}.csv`;
+      
+      // 第六步：触发下载
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url); // 释放内存
+    }
+
+    /**
+     * 解析CSV文本内容
+     * @param {string} text - CSV格式的文本内容
+     * @returns {Object} 包含headers和data的解析结果
+     * 
+     * 功能：将CSV文本解析为表头和数据数组
+     * 算法：状态机解析，处理引号包围的字段
+     * 
+     * 解析规则：
+     * 1. 支持逗号分隔
+     * 2. 支持双引号包围字段
+     * 3. 支持字段内包含逗号和引号
+     * 4. 自动跳过空行
+     */
+    function parseCSV(text) {
+      // 第一步：分割行并过滤空行
+      const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+      if (lines.length === 0) return { headers: [], data: [] };
+      
+      // 第二步：解析表头
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+      
+      // 第三步：解析数据行
+      const data = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const row = [];
+        let inQuotes = false; // 是否在引号内
+        let field = ''; // 当前字段内容
+        
+        // 第四步：逐字符解析
+        for (let j = 0; j < line.length; j++) {
+          const c = line[j];
+          
+          if (c === '"' && !inQuotes) {
+            // 进入引号
+            inQuotes = true;
+          } else if (c === '"' && inQuotes && line[j + 1] === '"') {
+            // 转义的引号（两个引号表示一个引号）
+            field += '"';
+            j++; // 跳过下一个引号
+          } else if (c === '"' && inQuotes) {
+            // 退出引号
+            inQuotes = false;
+          } else if (c === ',' && !inQuotes) {
+            // 字段分隔符（仅在引号外有效）
+            row.push(field.trim().replace(/^"(.*)"$/, '$1'));
+            field = '';
+          } else {
+            // 普通字符
+            field += c;
+          }
+        }
+        
+        // 添加最后一个字段
+        row.push(field.trim().replace(/^"(.*)"$/, '$1'));
+        
+        // 只有字段数匹配表头数才添加到数据中
+        if (row.length === headers.length) {
+          data.push(row);
+        }
+      }
+      
+      return { headers, data };
+    }
+
+    /**
+     * 导入CSV数据到表格
+     * @param {Array} headers - CSV表头数组
+     * @param {Array} data - CSV数据行数组
+     * 
+     * 功能：将解析后的CSV数据导入到当前表格中
+     * 算法流程：
+     * 1. 保存当前状态（用于撤销）
+     * 2. 根据用户选择决定是否清空现有数据
+     * 3. 动态添加新列（如果CSV中有新列）
+     * 4. 解析每行数据并映射到数据对象
+     * 5. 自动计算附加价格
+     * 6. 按编号排序并重置到第一页
+     * 
+     * 特殊处理：
+     * - 支持增量导入和替换导入两种模式
+     * - 自动处理列的动态添加
+     * - 智能编号生成
+     */
+    function importCSV(headers, data) {
+      // 第一步：保存状态（用于撤销）
+      saveState();
+
+      // 第二步：处理导入模式（清空或追加）
+      if (clearBeforeImportCheckbox.checked) {
+        // 清空模式：重置所有数据
+        allData = [];
+        // 重置BASE_COLUMNS为默认值
+        BASE_COLUMNS.length = 0;
+        BASE_COLUMNS.push(...['编号', '系统类型', '尺寸', '配置参数', '原价+85', '原价']);
+      }
+
+      // 第三步：动态添加新列
+      headers.forEach(header => {
+        if (!BASE_COLUMNS.includes(header)) {
+          BASE_COLUMNS.push(header);
+        }
+      });
+
+      // 第四步：解析CSV数据
+      data.forEach(rowData => {
+        const item = {};
+        
+        // 将CSV行数据映射到对象属性
+        headers.forEach((header, index) => {
+          if (header === '编号') {
+            // 编号处理：清空模式使用CSV中的编号，追加模式生成新编号
+            item.serialNumber = clearBeforeImportCheckbox.checked ? 
+              (rowData[index] ? parseInt(rowData[index]) : getNextSerialNumber()) : 
+              getNextSerialNumber();
+          } else if (header === '系统类型') {
+            item.systemType = rowData[index] || '';
+          } else if (header === '尺寸') {
+            item.size = rowData[index] || '';
+          } else if (header === '配置参数') {
+            item.configParam = rowData[index] || '';
+          } else if (header === '原价+85') {
+            item.computedPrice = parseFloat(rowData[index]) || 0;
+          } else if (header === '原价') {
+            item.price = parseFloat(rowData[index]) || 0;
+          } else {
+            // 自定义列：使用CSV中的值或空字符串
+            item[header] = rowData[index] || '';
+          }
+        });
+        
+        // 第五步：计算附加价格（仅对清空模式）
+        if (clearBeforeImportCheckbox.checked) {
+          const addon = parseFloat(addonInput.value) || 0;
+          if (!item.hasOwnProperty('computedPrice')) {
+            item.computedPrice = (item.price || 0) + addon;
+          }
+        }
+        
+        // 第六步：添加到数据数组
+        allData.push(item);
+      });
+
+      // 第七步：排序和页面重置
+      const isAscending = importSortAscCheckbox.checked;
+      sortTableByColumn(2, isAscending); // 按编号排序
+      
+      currentPage = 1; // 重置到第一页
+      renderTable();
+      updatePagination();
+    }
+
+    /**
+     * 处理CSV文件导入
+     * @param {Event} event - 文件选择事件对象
+     * 
+     * 功能：读取用户选择的CSV文件并导入数据
+     * 算法流程：
+     * 1. 获取选择的文件
+     * 2. 使用FileReader读取文件内容
+     * 3. 解析CSV文本
+     * 4. 调用importCSV导入数据
+     * 5. 清空文件输入框
+     * 
+     * 错误处理：
+     * - 文件为空时显示错误提示
+     * - 文件格式不正确时显示错误提示
+     */
+    function handleCSVImport(event) {
+      // 第一步：获取文件
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      // 第二步：创建文件读取器
+      const reader = new FileReader();
+      
+      // 第三步：设置读取完成回调
+      reader.onload = (e) => {
+        const text = e.target.result;
+        
+        // 第四步：解析CSV内容
+        const { headers, data } = parseCSV(text);
+        
+        // 第五步：验证数据有效性
+        if (data.length === 0) {
+          alert('CSV 文件为空或格式不正确！');
+          return;
+        }
+        
+        // 第六步：导入数据
+        importCSV(headers, data);
+      };
+      
+      // 第七步：开始读取文件（使用UTF-8编码）
+      reader.readAsText(file, 'utf-8');
+      
+      // 第八步：清空文件输入框，允许重复选择同一文件
+      csvFileInput.value = '';
+    }
+
+    // === 批量删除模块 ===
+    
+    /**
+     * 处理批量删除操作
+     * 功能：删除所有选中的行，并重新编号
+     * 算法流程：
+     * 1. 获取所有选中的行
+     * 2. 用户确认删除操作
+     * 3. 保存状态（用于撤销）
+     * 4. 收集要删除的行索引
+     * 5. 按降序删除（避免索引变化影响）
+     * 6. 重新编号所有剩余行
+     * 7. 重新渲染界面
+     * 8. 取消全选状态
+     * 
+     * 边界条件：
+     * - 没有选中行时不执行操作
+     * - 删除后需要重新编号
+     * - 删除后自动取消全选状态
+     */
+    function handleBulkDelete() {
+      // 第一步：获取选中的行
+      const checkedBoxes = document.querySelectorAll('#tableBody .row-checkbox:checked');
+      if (checkedBoxes.length === 0) return;
+
+      // 第二步：用户确认
+      if (!confirm(`确定要删除选中的 ${checkedBoxes.length} 行吗？`)) {
+        // 用户取消删除时，也要取消全选状态
+        clearAllSelections();
+        return;
+      }
+
+      // 第三步：保存状态（用于撤销）
+      saveState();
+      
+      // 第四步：收集要删除的行索引
+      const indicesToDelete = [];
+      checkedBoxes.forEach(checkbox => {
+        const rowIndex = parseInt(checkbox.closest('tr').dataset.index);
+        indicesToDelete.push(rowIndex);
+      });
+      
+      // 第五步：按降序排列索引，从后往前删除
+      // 这样可以避免删除前面元素后影响后面元素的索引
+      indicesToDelete.sort((a, b) => b - a);
+      indicesToDelete.forEach(index => {
+        allData.splice(index, 1);
+      });
+      
+      // 第六步：重新编号所有剩余行
+      allData.forEach((item, index) => {
+        item.serialNumber = index + 1;
+      });
+      
+      // 第七步：取消全选状态
+      clearAllSelections();
+      
+      // 第八步：重新渲染界面
+      // 判断当前页是否还有数据，没有则自动跳转上一页（但第一页不跳转）
+      const totalPages = Math.ceil(allData.length / ROWS_PER_PAGE) || 1;
+      if (currentPage > totalPages) {
+        currentPage = Math.max(1, totalPages);
+      }
+      renderTable();
+      updatePagination();
+      updateBulkDeleteButton();
+    }
+
+    /**
+     * 清除所有选择状态
+     * 功能：取消全选复选框和所有行复选框的选中状态
+     */
+    function clearAllSelections() {
+      // 取消全选复选框
+      const selectAllCheckbox = document.getElementById('selectAll');
+      if (selectAllCheckbox.checked) {
+        selectAllCheckbox.checked = false;
+      }
+      
+      // 取消所有行复选框
+      const rowCheckboxes = document.querySelectorAll('#tableBody .row-checkbox:checked');
+      rowCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
+      });
+      
+      // 更新批量删除按钮状态
+      updateBulkDeleteButton();
+    }
+
+    // === 分页功能模块 ===
+    
+    /**
+     * 更新分页控件状态
+     * 功能：更新分页相关的所有UI元素
+     * 算法流程：
+     * 1. 计算总页数
+     * 2. 更新页面信息显示
+     * 3. 更新上一页/下一页按钮状态
+     * 4. 动态生成页码按钮（当前页±2的范围）
+     * 
+     * 边界条件：
+     * - 总页数为0时显示为1
+     * - 当前页超出范围时自动调整
+     */
+    function updatePagination() {
+      // 第一步：计算总页数
+      const totalPages = Math.ceil(allData.length / ROWS_PER_PAGE);
+      
+      // 第二步：更新页面信息显示
+      document.getElementById('totalPages').textContent = totalPages || 1;
+      document.getElementById('currentPage').textContent = currentPage;
+      document.getElementById('totalRows').textContent = allData.length;
+      
+      // 第三步：更新上一页/下一页按钮状态
+      document.getElementById('prevPage').disabled = currentPage <= 1;
+      document.getElementById('nextPage').disabled = currentPage >= totalPages;
+      
+      // 第四步：更新页码按钮
+      const pageButtonsContainer = document.querySelector('.page-buttons');
+      
+      // 清除除上一页和下一页按钮外的所有页码按钮
+      const buttons = pageButtonsContainer.querySelectorAll('.page-btn:not(#prevPage):not(#nextPage)');
+      buttons.forEach(btn => btn.remove());
+      
+      // 第五步：动态生成页码按钮
+      if (totalPages > 0) {
+        // 计算显示范围：当前页前后各2页
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, currentPage + 2);
+        
+        // 生成页码按钮
+        for (let i = startPage; i <= endPage; i++) {
+          const pageBtn = document.createElement('button');
+          pageBtn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+          pageBtn.id = `page${i}`;
+          pageBtn.textContent = i;
+          pageBtn.onclick = () => goToPage(i);
+          
+          // 在下一页按钮之前插入
+          document.getElementById('nextPage').before(pageBtn);
+        }
+      }
+    }
+
+    /**
+     * 跳转到指定页面
+     * @param {number} page - 目标页码
+     * 
+     * 功能：切换到指定页面并重新渲染
+     * 边界条件：
+     * - 页码小于1时不执行跳转
+     * - 页码大于总页数时不执行跳转
+     */
+    function goToPage(page) {
+      // 验证页码有效性
+      if (page < 1 || page > Math.ceil(allData.length / ROWS_PER_PAGE)) return;
+      
+      // 更新当前页码
+      currentPage = page;
+      
+      // 重新渲染表格和分页控件
+      renderTable();
+      updatePagination();
+    }
+
+    /**
+     * 渲染表格数据
+     * 功能：根据当前页码渲染对应的数据行
+     * 算法流程：
+     * 1. 清空现有表格内容
+     * 2. 计算当前页的数据范围
+     * 3. 遍历数据生成HTML行
+     * 4. 处理基础列和自定义列
+     * 5. 绑定行事件处理器
+     * 
+     * 性能优化：
+     * - 只渲染当前页的数据
+     * - 使用字符串拼接减少DOM操作
+     */
+    function renderTable() {
+      // 第一步：获取表格体并清空
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+      
+      // 第二步：计算当前页的数据范围
+      const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
+      const endIndex = Math.min(startIndex + ROWS_PER_PAGE, allData.length);
+      
+      // 第三步：渲染当前页的数据行
+      for (let i = startIndex; i < endIndex; i++) {
+        const item = allData[i];
+        const row = document.createElement('tr');
+        row.dataset.index = i; // 存储数据索引，用于编辑和删除操作
+        
+        // 第四步：构建基础列的HTML
+        let rowHTML = `
+          <td class="row-select"><input type="checkbox" class="row-checkbox"></td>
+          <td class="serial-number">${item.serialNumber}</td>
+          <td>${item.systemType}</td>
+          <td>${item.size}</td>
+          <td>${item.configParam}</td>
+          <td class="computed-cell">${item.computedPrice.toFixed(2)}</td>
+          <td>${item.price.toFixed(2)}</td>
+        `;
+        
+        // 第五步：添加自定义列
+        // 从第6列开始（跳过基础列），检查是否为自定义列
+        for (let j = 6; j < BASE_COLUMNS.length; j++) {
+          const colName = BASE_COLUMNS[j];
+          // 排除基础列，只处理自定义列
+          if (colName !== '编号' && colName !== '系统类型' && colName !== '尺寸' && 
+              colName !== '配置参数' && colName !== '原价+85' && colName !== '原价') {
+            rowHTML += `<td>${item[colName] || ''}</td>`;
+          }
+        }
+        
+        // 第六步：添加操作列
+        rowHTML += `
+          <td>
+            <button class="edit-row-btn">编辑</button>
+            <button class="delete-row-btn">删除</button>
+          </td>
+        `;
+        
+        // 第七步：设置行HTML并添加到表格
+        row.innerHTML = rowHTML;
+        tbody.appendChild(row);
+      }
+      
+      // 第八步：绑定当前页行的事件处理器
+      initRowEvents();
+    }
+
+    /**
+     * 初始化表格行的事件处理器
+     * 功能：为当前页的所有行绑定事件处理器
+     * 绑定的事件：
+     * 1. 编辑按钮点击事件
+     * 2. 删除按钮点击事件
+     * 3. 行选择复选框事件
+     * 4. 全选复选框事件
+     * 
+     * 性能优化：
+     * - 只为当前页的元素绑定事件
+     * - 移除旧事件监听器避免重复绑定
+     */
+    function initRowEvents() {
+      // 第一步：绑定编辑按钮事件
+      document.querySelectorAll('#tableBody .edit-row-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const row = btn.closest('tr');
+          openEditModal(row);
+        });
+      });
+      
+      // 第二步：绑定删除按钮事件
+      document.querySelectorAll('#tableBody .delete-row-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const row = btn.closest('tr');
+          const rowIndex = parseInt(row.dataset.index);
+          
+          // 用户确认删除
+          if (confirm('确定要删除这一行吗？')) {
+            // 保存状态（用于撤销）
+            saveState();
+            
+            // 从数据数组中删除对应项
+            allData.splice(rowIndex, 1);
+            
+            // 重新编号所有剩余行
+            allData.forEach((item, index) => {
+              item.serialNumber = index + 1;
+            });
+            
+            // 重新渲染界面
+            renderTable();
+            updatePagination();
+            updateBulkDeleteButton();
+          }
+        });
+      });
+      
+      // 第三步：绑定行选择复选框事件
+      document.querySelectorAll('.row-checkbox').forEach(cb => {
+        // 先移除可能存在的旧事件监听器
+        cb.removeEventListener('change', updateBulkDeleteButton);
+        // 绑定新的事件监听器
+        cb.addEventListener('change', updateBulkDeleteButton);
+      });
+      
+      // 第四步：更新全选复选框事件
+      const selectAllCheckbox = document.getElementById('selectAll');
+      selectAllCheckbox.onchange = function() {
+        const checkboxes = document.querySelectorAll('#tableBody .row-checkbox');
+        // 同步所有行复选框的状态
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        // 更新批量删除按钮状态
+        updateBulkDeleteButton();
+      };
+    }
+
+    // === 事件绑定模块 ===
+    
+    /**
+     * 绑定所有UI控件的事件处理器
+     * 功能：为页面的所有交互元素绑定相应的事件处理函数
+     * 
+     * 事件分类：
+     * 1. 工具栏按钮事件
+     * 2. 模态框事件
+     * 3. 分页控件事件
+     * 4. 数据输入事件
+     * 5. 文件操作事件
+     */
+    
+    // 工具栏按钮事件绑定
+    document.getElementById('addRowBtn').addEventListener('click', openAddModal);
+    document.getElementById('addColumnBtn').addEventListener('click', () => {
+      const name = prompt('请输入新列名：');
+      if (name) addColumn(name);
+    });
+    document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+    document.getElementById('importBtn').addEventListener('click', () => csvFileInput.click());
+    document.getElementById('undoBtn').addEventListener('click', restoreState);
+    document.getElementById('bulkDeleteBtn').addEventListener('click', handleBulkDelete);
+    
+    // 文件操作事件绑定
+    csvFileInput.addEventListener('change', handleCSVImport);
+    
+    // 模态框事件绑定
+    // 修复：所有主弹窗关闭按钮都绑定关闭事件
+    modalCloseBtns.forEach(btn => btn.addEventListener('click', closeModalFn));
+    // 修复：点击主弹窗遮罩层关闭弹窗
+    document.getElementById('modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModalFn();
+    });
+    cancelBtn.addEventListener('click', closeModalFn);
+    confirmBtn.addEventListener('click', handleConfirm);
+    
+    // 数据输入事件绑定
+    addonInput.addEventListener('input', updateComputedCells);
+    
+    // 分页控件事件绑定
+    document.getElementById('prevPage').addEventListener('click', () => goToPage(currentPage - 1));
+    document.getElementById('nextPage').addEventListener('click', () => goToPage(currentPage + 1));
+
+    // === 初始化模块 ===
+    
+    /**
+     * 初始化示例数据
+     * 功能：提供初始的示例数据供用户参考和测试
+     * 数据包含：Windows和Android系统的各种配置和价格
+     */
+    allData = [
+      { serialNumber: 1, systemType: 'Windows', size: '15.6', configParam: 'i7/16G/512G', price: 5999.00, computedPrice: 6084.00 },
+      { serialNumber: 2, systemType: 'Android', size: '10.1', configParam: 'Snapdragon 8 Gen 1', price: 2999.00, computedPrice: 3084.00 },
+      { serialNumber: 3, systemType: 'Windows', size: '13.3', configParam: 'i5/8G/256G', price: 4999.00, computedPrice: 5084.00 },
+      { serialNumber: 4, systemType: 'Windows', size: '17', configParam: 'i7/32G/1T', price: 8999.00, computedPrice: 9084.00 },
+      { serialNumber: 5, systemType: 'Android', size: '12.1', configParam: 'Snapdragon 7 Gen 1', price: 3999.00, computedPrice: 4084.00 },
+      { serialNumber: 6, systemType: 'Windows', size: '15', configParam: 'i5/16G/512G', price: 5499.00, computedPrice: 5584.00 },
+      { serialNumber: 7, systemType: 'Windows', size: '21.5', configParam: 'i7/16G/512G', price: 7999.00, computedPrice: 8084.00 },
+      { serialNumber: 8, systemType: 'Android', size: '18.5', configParam: 'Snapdragon 8+ Gen 1', price: 4499.00, computedPrice: 4584.00 },
+      { serialNumber: 9, systemType: 'Windows', size: '19', configParam: 'i9/64G/2T', price: 12999.00, computedPrice: 13084.00 },
+      { serialNumber: 10, systemType: 'Android', size: '15.6', configParam: 'Snapdragon 6 Gen 1', price: 1999.00, computedPrice: 2084.00 },
+      { serialNumber: 11, systemType: 'Windows', size: '10.4', configParam: 'i3/4G/128G', price: 2999.00, computedPrice: 3084.00 },
+      { serialNumber: 12, systemType: 'Android', size: '13.3', configParam: 'Mediatek Dimensity 9000', price: 3499.00, computedPrice: 3584.00 }
+    ];
+
+    /**
+     * 应用初始化
+     * 功能：在页面加载完成后执行初始化操作
+     * 初始化步骤：
+     * 1. 渲染初始表格数据
+     * 2. 更新分页控件
+     * 3. 设置撤销按钮状态
+     * 4. 设置批量删除按钮状态
+     */
+    renderTable();
+    updatePagination();
+    updateUndoButton();
+    updateBulkDeleteButton();
+    
+    /**
+     * 代码整体流程总结：
+     * 
+     * 1. 数据管理层：
+     *    - allData数组存储所有报价记录
+     *    - 支持增删改查操作
+     *    - 自动编号和价格计算
+     * 
+     * 2. 界面渲染层：
+     *    - 分页显示数据（每页10条）
+     *    - 动态生成表格HTML
+     *    - 响应式UI更新
+     * 
+     * 3. 交互控制层：
+     *    - 模态框表单操作
+     *    - 排序和筛选功能
+     *    - 批量操作支持
+     * 
+     * 4. 数据持久化层：
+     *    - CSV导入导出功能
+     *    - 操作历史管理（撤销）
+     *    - 数据格式转换
+     * 
+     * 5. 扩展功能层：
+     *    - 动态列管理
+     *    - 自定义计算字段
+     *    - 智能排序算法
+     * 
+     * 边界条件处理：
+     * - 空数据处理
+     * - 无效输入验证
+     * - 并发操作保护
+     * - 内存使用优化
+     */
+  </script>
+</body>
+</html>
+
+
+
