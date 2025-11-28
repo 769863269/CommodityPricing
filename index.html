@@ -675,6 +675,16 @@
   </style>
 </head>
 <body>
+  <!-- 全屏加载动画 -->
+  <div id="fullscreen-loader" style="position:fixed;z-index:3000;top:0;left:0;width:100vw;height:100vh;background:rgba(255,255,255,0.96);display:flex;align-items:center;justify-content:center;transition:opacity 0.3s;">
+    <div style="text-align:center;">
+      <div style="margin-bottom:18px;">
+        <svg width="60" height="60" viewBox="0 0 50 50" style="animation:spin 1s linear infinite;"><circle cx="25" cy="25" r="20" fill="none" stroke="#4361ee" stroke-width="6" stroke-linecap="round" stroke-dasharray="90 150"/></svg>
+      </div>
+      <div style="font-size:18px;color:#4361ee;letter-spacing:2px;">数据加载中…</div>
+    </div>
+  </div>
+  <style>@keyframes spin{100%{transform:rotate(360deg);}}</style>
   <div class="container">
     <h1>📊 动态报价表编辑器</h1>
     <div class="toolbar">
@@ -2328,21 +2338,74 @@
      * 初始化示例数据
      * 功能：提供初始的示例数据供用户参考和测试
      * 数据包含：Windows和Android系统的各种配置和价格
+     * 已移除假数据，初始化为空数组
      */
-    allData = [
-      { serialNumber: 1, systemType: 'Windows', size: '15.6', configParam: 'i7/16G/512G', price: 5999.00, computedPrice: 6084.00 },
-      { serialNumber: 2, systemType: 'Android', size: '10.1', configParam: 'Snapdragon 8 Gen 1', price: 2999.00, computedPrice: 3084.00 },
-      { serialNumber: 3, systemType: 'Windows', size: '13.3', configParam: 'i5/8G/256G', price: 4999.00, computedPrice: 5084.00 },
-      { serialNumber: 4, systemType: 'Windows', size: '17', configParam: 'i7/32G/1T', price: 8999.00, computedPrice: 9084.00 },
-      { serialNumber: 5, systemType: 'Android', size: '12.1', configParam: 'Snapdragon 7 Gen 1', price: 3999.00, computedPrice: 4084.00 },
-      { serialNumber: 6, systemType: 'Windows', size: '15', configParam: 'i5/16G/512G', price: 5499.00, computedPrice: 5584.00 },
-      { serialNumber: 7, systemType: 'Windows', size: '21.5', configParam: 'i7/16G/512G', price: 7999.00, computedPrice: 8084.00 },
-      { serialNumber: 8, systemType: 'Android', size: '18.5', configParam: 'Snapdragon 8+ Gen 1', price: 4499.00, computedPrice: 4584.00 },
-      { serialNumber: 9, systemType: 'Windows', size: '19', configParam: 'i9/64G/2T', price: 12999.00, computedPrice: 13084.00 },
-      { serialNumber: 10, systemType: 'Android', size: '15.6', configParam: 'Snapdragon 6 Gen 1', price: 1999.00, computedPrice: 2084.00 },
-      { serialNumber: 11, systemType: 'Windows', size: '10.4', configParam: 'i3/4G/128G', price: 2999.00, computedPrice: 3084.00 },
-      { serialNumber: 12, systemType: 'Android', size: '13.3', configParam: 'Mediatek Dimensity 9000', price: 3499.00, computedPrice: 3584.00 }
-    ];
+    allData = [];
+
+    // ====== IndexedDB 持久化功能 ======
+    const DB_NAME = 'quote-table-db';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'quoteData';
+    let db = null;
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = window.indexedDB.open(DB_NAME, DB_VERSION);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+        req.onupgradeneeded = e => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+      });
+    }
+
+    function saveToDB(key, value) {
+      if (!db) return;
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(value, key);
+    }
+
+    function loadFromDB(key) {
+      return new Promise((resolve, reject) => {
+        if (!db) return resolve(null);
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    // ====== 全屏加载动画控制 ======
+    function showLoader() {
+      document.getElementById('fullscreen-loader').style.display = 'flex';
+    }
+    function hideLoader() {
+      const loader = document.getElementById('fullscreen-loader');
+      loader.style.opacity = '0';
+      setTimeout(() => { loader.style.display = 'none'; loader.style.opacity = '1'; }, 350);
+    }
+
+    // ====== 数据变更自动保存 ======
+    function autoSave() {
+      saveToDB('allData', allData);
+      saveToDB('BASE_COLUMNS', BASE_COLUMNS);
+    }
+
+    // 在所有数据变更点调用 autoSave
+    const _saveState = saveState;
+    saveState = function() {
+      _saveState.apply(this, arguments);
+      autoSave();
+    };
+    // 监听表单、批量添加、导入、删除等操作后也调用 autoSave
+    const _renderTable = renderTable;
+    renderTable = function() {
+      _renderTable.apply(this, arguments);
+      autoSave();
+    };
 
     /**
      * 应用初始化
@@ -2353,10 +2416,29 @@
      * 3. 设置撤销按钮状态
      * 4. 设置批量删除按钮状态
      */
-    renderTable();
-    updatePagination();
-    updateUndoButton();
-    updateBulkDeleteButton();
+    // ====== 首次加载自动恢复数据 ======
+    showLoader();
+    openDB().then(database => {
+      db = database;
+      return Promise.all([
+        loadFromDB('allData'),
+        loadFromDB('BASE_COLUMNS')
+      ]);
+    }).then(([savedData, savedCols]) => {
+      if (Array.isArray(savedData) && savedData.length > 0) {
+        allData = savedData;
+      }
+      if (Array.isArray(savedCols) && savedCols.length > 0) {
+        BASE_COLUMNS.length = 0;
+        BASE_COLUMNS.push(...savedCols);
+      }
+    }).catch(()=>{}).finally(() => {
+      renderTable();
+      updatePagination();
+      updateUndoButton();
+      updateBulkDeleteButton();
+      hideLoader();
+    });
     
     /**
      * 代码整体流程总结：
